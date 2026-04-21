@@ -75,7 +75,7 @@ class _TaskCardState extends State<TaskCard>
     final now = DateTime.now();
 
     final alertTimes = widget.task.alerts.map((alert) {
-      final parts = alert.alertTime.split(':');
+      final parts = _parseTimeParts(alert.alertTime);
       return DateTime(now.year, now.month, now.day,
           int.parse(parts[0]), int.parse(parts[1]));
     }).toList();
@@ -83,7 +83,7 @@ class _TaskCardState extends State<TaskCard>
     alertTimes.sort();
     final earliestAlert = alertTimes.first;
 
-    final dueParts = widget.task.dueTime!.split(':');
+    final dueParts = _parseTimeParts(widget.task.dueTime!);
     final dueDateTime = DateTime(now.year, now.month, now.day,
         int.parse(dueParts[0]), int.parse(dueParts[1]));
 
@@ -128,6 +128,13 @@ class _TaskCardState extends State<TaskCard>
   Future<void> _launchUrl(String url) async {
     final uri = Uri.parse(url);
     await launchUrl(uri);
+  }
+
+  // Extracts HH:MM from either 'HH:MM', 'HH:MM:SS', or 'YYYY-MM-DD HH:MM:SS'
+  List<String> _parseTimeParts(String rawTime) {
+    final timePart = rawTime.contains(' ') ? rawTime.split(' ').last : rawTime;
+    final parts = timePart.split(':');
+    return [parts[0], parts.length > 1 ? parts[1] : '00'];
   }
 
   String _formatCountdown() {
@@ -219,9 +226,9 @@ class _TaskCardState extends State<TaskCard>
   }
 
   Widget _buildTimeColumn() {
-    final timeParts = (widget.task.dueTime ?? '00:00').split(':');
+    final timeParts = _parseTimeParts(widget.task.dueTime ?? '00:00');
     final hours = timeParts[0];
-    final minutes = timeParts.length > 1 ? timeParts[1] : '00';
+    final minutes = timeParts[1];
 
     return SizedBox(
       width: 70,
@@ -344,7 +351,7 @@ class _TaskCardState extends State<TaskCard>
 
   bool _hasAlertTimePassed(String alertTime) {
     final now = DateTime.now();
-    final timeParts = alertTime.split(':');
+    final timeParts = _parseTimeParts(alertTime);
     final alertDateTime = DateTime(
       now.year,
       now.month,
@@ -485,12 +492,9 @@ class _TaskCardState extends State<TaskCard>
               child: Container(
                 width: 10,
                 height: 10,
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  gradient: RadialGradient(
-                    center: Alignment(-0.3, -0.3),
-                    colors: [Color(0xFFFF6B35), Color(0xFFFF4A00), Color(0xFFCC3300)],
-                  ),
+                  color: _accentColour(),
                 ),
               ),
             )
