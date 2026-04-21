@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/task_model.dart';
 import '../models/alert_model.dart';
@@ -314,7 +315,7 @@ class _TaskCardState extends State<TaskCard>
     return Row(
       children: [
         if (widget.task.recurrence != null) ...[
-          _buildActionButton(Icons.repeat, Colors.white, _accentColour()),
+          _buildSvgActionButton('assets/icons/repeate-one.svg'),
           const SizedBox(width: 5),
         ],
         ..._buildAlertButtons(),
@@ -387,12 +388,33 @@ class _TaskCardState extends State<TaskCard>
     );
   }
 
+  Widget _buildSvgActionButton(String assetPath) {
+    return Container(
+      width: 28,
+      height: 28,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(9.5),
+        boxShadow: const [
+          BoxShadow(color: Color(0x26000000), blurRadius: 4, offset: Offset(0, 2)),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(6),
+        child: SvgPicture.asset(
+          assetPath,
+          colorFilter: ColorFilter.mode(_accentColour(), BlendMode.srcIn),
+        ),
+      ),
+    );
+  }
+
   Widget _buildLinksRow() {
     if (widget.task.links.isEmpty) return const SizedBox.shrink();
 
     return Row(
       children: [
-        const Icon(Icons.link, size: 14, color: AppColours.slate),
+        SvgPicture.asset('assets/icons/link.svg', width: 14, height: 14),
         const SizedBox(width: 8),
         Expanded(
           child: Wrap(
@@ -514,9 +536,9 @@ class _TaskCardState extends State<TaskCard>
   Widget _buildIconColumn() {
     return Column(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: const [
-        Icon(Icons.copy_outlined, color: AppColours.lightSlate, size: 22),
-        Icon(Icons.edit_outlined, color: AppColours.lightSlate, size: 17),
+      children: [
+        SvgPicture.asset('assets/icons/copy.svg', width: 22, height: 22),
+        SvgPicture.asset('assets/icons/Button OnClick- edit.svg', width: 17, height: 17),
       ],
     );
   }

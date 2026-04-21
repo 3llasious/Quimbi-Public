@@ -2,6 +2,8 @@ import 'subtask_model.dart';
 import 'recurrence_model.dart';
 import 'alert_model.dart';
 import 'link_model.dart';
+import 'location_model.dart';
+import 'person_model.dart';
 
 class TaskModel {
   final int id;
@@ -15,6 +17,8 @@ class TaskModel {
   final List<AlertModel> alerts;
   final RecurrenceModel? recurrence;
   final List<LinkModel> links;
+  final LocationModel? location;
+  final List<PersonModel> people;
 
   const TaskModel({
     required this.id,
@@ -28,5 +32,7 @@ class TaskModel {
     this.alerts = const [],
     this.recurrence,
     this.links = const [],
+    this.location,
+    this.people = const [],
   });
 }

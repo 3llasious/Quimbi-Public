@@ -31,6 +31,26 @@ class DatabaseHelper {
 // verson's how SQLite tracks whether your schema has changed. The number gets stored inside the .db file itself. When the app opens the database it compares the stored number against the number in your code
 //stored version 1, code says 2  →  run onUpgrade, schema has changed
   Future<void> _createTables(Database db, int version) async {
+
+  await db.execute('''
+    CREATE TABLE locations (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      label      TEXT NOT NULL,
+      address    TEXT,
+      latitude   REAL,
+      longitude  REAL
+    )
+  ''');
+
+    await db.execute('''
+   CREATE TABLE people (
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  name         TEXT NOT NULL,
+  phone        TEXT,
+  contact_id   TEXT
+)
+  ''');
+
     await db.execute('''
      CREATE TABLE tasks (
   id             INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -42,6 +62,14 @@ class DatabaseHelper {
   location_id    INTEGER REFERENCES locations(id) ON DELETE SET NULL
 )
     ''');
+
+await db.execute('''
+  CREATE TABLE task_people (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id    INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+    person_id  INTEGER NOT NULL REFERENCES people(id) ON DELETE CASCADE
+  )
+''');
 
     await db.execute('''
       CREATE TABLE subtasks (

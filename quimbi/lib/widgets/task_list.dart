@@ -3,6 +3,8 @@ import '../models/task_model.dart';
 import '../models/subtask_model.dart';
 import '../models/alert_model.dart';
 import '../models/link_model.dart';
+import '../models/recurrence_model.dart';
+
 import 'task_card.dart';
 
 class TaskList extends StatefulWidget {
@@ -37,7 +39,7 @@ List<TaskModel> _tasks = [
       LinkModel(id: 2, taskId: 1, label: 'notes', url: 'https://notion.so/therapy-notes'),
     ],
   ),
-  TaskModel(
+TaskModel(
     id: 2,
     title: 'Screen Break: Walk',
     isTimeSensitive: false,
@@ -48,6 +50,15 @@ List<TaskModel> _tasks = [
     alerts: [
       AlertModel(id: 3, taskId: 2, alertTime: '18:45', alertType: 'notification', isActive: true),
     ],
+    links: [],
+    recurrence: RecurrenceModel(
+      id: 2,
+      taskId: 2,
+      recurrenceType: 'weekly',
+      weekdays: '6',
+      intervalCount: 1,
+      startsOn: '2024-01-15',
+    ),
   ),
 ];
 
