@@ -32,16 +32,15 @@ class DatabaseHelper {
 //stored version 1, code says 2  →  run onUpgrade, schema has changed
   Future<void> _createTables(Database db, int version) async {
     await db.execute('''
-      CREATE TABLE tasks (
-        id             INTEGER PRIMARY KEY AUTOINCREMENT,
-        title          TEXT NOT NULL,
-        time_sensitive INTEGER DEFAULT 0,
-        due_time       TEXT,
-        alert_time     TEXT,
-        completed      INTEGER DEFAULT 0,
-        created_at     TEXT DEFAULT (datetime('now')),
-        location_id    INTEGER REFERENCES locations(id) ON DELETE SET NULL
-      )
+     CREATE TABLE tasks (
+  id             INTEGER PRIMARY KEY AUTOINCREMENT,
+  title          TEXT NOT NULL,
+  time_sensitive INTEGER DEFAULT 0,
+  due_time       TEXT,
+  completed      INTEGER DEFAULT 0,
+  created_at     TEXT DEFAULT (datetime('now')),
+  location_id    INTEGER REFERENCES locations(id) ON DELETE SET NULL
+)
     ''');
 
     await db.execute('''
@@ -51,6 +50,26 @@ class DatabaseHelper {
         title       TEXT NOT NULL,
         completed   INTEGER DEFAULT 0,
         position    INTEGER
+      )
+    ''');
+
+    await db.execute('''
+CREATE TABLE alerts (
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  task_id      INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+  alert_time   TEXT NOT NULL,
+  alert_type   TEXT NOT NULL,  
+  is_active    INTEGER DEFAULT 1
+)
+
+   ''' );
+
+    await db.execute('''
+      CREATE TABLE links (
+        id       INTEGER PRIMARY KEY AUTOINCREMENT,
+        task_id  INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+        label    TEXT NOT NULL,
+        url      TEXT NOT NULL
       )
     ''');
 
