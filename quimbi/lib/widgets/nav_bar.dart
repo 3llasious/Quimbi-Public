@@ -1,6 +1,6 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:glassmorphism/glassmorphism.dart';
 
 class QuimbiNavBar extends StatefulWidget {
   const QuimbiNavBar({super.key});
@@ -20,7 +20,7 @@ class _QuimbiNavBarState extends State<QuimbiNavBar> {
   Widget build(BuildContext context) {
     return Padding(
       padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).padding.bottom + 16,
+        bottom: MediaQuery.of(context).padding.bottom + 4,
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -35,37 +35,52 @@ class _QuimbiNavBarState extends State<QuimbiNavBar> {
   }
 
   Widget _buildPill() {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(999),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-        child: Container(
-          height: 72,
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.15),
-            borderRadius: BorderRadius.circular(999),
-            border: Border.all(color: Colors.white.withOpacity(0.4)),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x40000000),
-                blurRadius: 4,
-                offset: Offset(0, 4),
-              ),
-            ],
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(999),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x40000000),
+            blurRadius: 4,
+            offset: Offset(0, 4),
           ),
-          child: Padding(
-            padding: const EdgeInsets.all(6),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _buildNavItem('home', _homeIconSvg),
-                _buildNavItem('todo', _todoIconSvg),
-                _buildNavItem('community', null),
-              ],
-            ),
-          ),
+        ],
+      ),
+      child: GlassmorphicContainer(
+      width: 260,
+      height: 72,
+      borderRadius: 999,
+      blur: 20,
+      alignment: Alignment.center,
+      border: 1.5,
+      linearGradient: LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          Colors.white.withOpacity(0.65),
+          Colors.white.withOpacity(0.45),
+        ],
+      ),
+      borderGradient: LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          Colors.white.withOpacity(0.9),
+          Colors.white.withOpacity(0.1),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(6),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildNavItem('home', _homeIconSvg),
+            _buildNavItem('todo', _todoIconSvg),
+            _buildNavItem('community', null),
+          ],
         ),
       ),
+    ),
     );
   }
 
@@ -149,35 +164,51 @@ class _QuimbiNavBarState extends State<QuimbiNavBar> {
   Widget _buildFab() {
     return GestureDetector(
       onTap: () => setState(() => _fabOpen = !_fabOpen),
-      child: ClipOval(
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-          child: Container(
-            width: 72,
-            height: 72,
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.15),
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.white.withOpacity(0.4)),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0x40000000),
-                  blurRadius: 4,
-                  offset: Offset(0, 4),
-                ),
-              ],
+      child: Container(
+        decoration: const BoxDecoration(
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+              color: Color(0x26000000),
+              blurRadius: 16,
+              spreadRadius: 4,
+              offset: Offset(0, 4),
             ),
-            child: AnimatedRotation(
-              turns: _fabOpen ? 0.125 : 0,
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.elasticOut,
-              child: Icon(
-                Icons.add,
-                color: _fabOpen ? _orange : _purple,
-                size: 26,
-              ),
-            ),
+          ],
+        ),
+        child: GlassmorphicContainer(
+        width: 72,
+        height: 72,
+        borderRadius: 999,
+        blur: 15,
+        alignment: Alignment.center,
+        border: 1.5,
+        linearGradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Colors.white.withOpacity(0.55),
+            Colors.white.withOpacity(0.35),
+          ],
+        ),
+        borderGradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Colors.white.withOpacity(0.8),
+            Colors.white.withOpacity(0.3),
+          ],
+        ),
+        child: AnimatedRotation(
+          turns: _fabOpen ? 0.125 : 0,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.elasticOut,
+          child: Icon(
+            Icons.add,
+            color: _fabOpen ? _orange : _purple,
+            size: 26,
           ),
+        ),
         ),
       ),
     );

@@ -2,12 +2,9 @@ import 'package:flutter/material.dart';
 
 const _selectedGreen = Color(0xFF0BD172);
 
-const double _itemWidth = 40;
 const double _separatorWidth = 8;
-const double _itemStride = _itemWidth + _separatorWidth;
 const double _horizontalPadding = 16;
-
-// Days shown before today — origin of the list.
+const int _visibleDays = 7;
 const int _daysBeforeToday = 3;
 
 class DateSelectorHeader extends StatefulWidget {
@@ -23,10 +20,11 @@ class DateSelectorHeader extends StatefulWidget {
 }
 
 class _DateSelectorHeaderState extends State<DateSelectorHeader> {
-  late final DateTime _origin; // index 0 = today - 3 days
+  late final DateTime _origin;
   late final DateTime _today;
   late DateTime _selectedDate;
   late final ScrollController _scrollController;
+  double _itemWidth = 40;
 
   @override
   void initState() {
@@ -41,10 +39,9 @@ class _DateSelectorHeaderState extends State<DateSelectorHeader> {
 
   void _centerOnToday() {
     if (!_scrollController.hasClients) return;
+    final stride = _itemWidth + _separatorWidth;
     final viewport = _scrollController.position.viewportDimension;
-    // Offset that places today's centre at the viewport centre.
-    final todayIndex = _daysBeforeToday;
-    final todayCenter = _horizontalPadding + todayIndex * _itemStride + _itemWidth / 2;
+    final todayCenter = _horizontalPadding + _daysBeforeToday * stride + _itemWidth / 2;
     final offset = (todayCenter - viewport / 2).clamp(0.0, _scrollController.position.maxScrollExtent);
     _scrollController.jumpTo(offset);
   }
@@ -56,39 +53,46 @@ class _DateSelectorHeaderState extends State<DateSelectorHeader> {
   }
 
   DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
-
   DateTime _dateAt(int index) => _origin.add(Duration(days: index));
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 72,
-      child: ListView.separated(
-        controller: _scrollController,
-        scrollDirection: Axis.horizontal,
-        // Prevent scrolling left past the origin (3 days before today).
-        physics: const ClampingScrollPhysics(),
-        padding: const EdgeInsets.symmetric(horizontal: _horizontalPadding),
-        itemCount: 36500, // ~100 years forward
-        separatorBuilder: (_, _) => const SizedBox(width: _separatorWidth),
-        itemBuilder: (context, index) {
-          final date = _dateAt(index);
-          return _DateItem(
-            date: date,
-            isSelected: _dateOnly(date) == _selectedDate,
-            onTap: () {
-              setState(() => _selectedDate = _dateOnly(date));
-              widget.onDateSelected(date);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final availableWidth = constraints.maxWidth;
+        _itemWidth = (availableWidth - _horizontalPadding * 2 - (_visibleDays - 1) * _separatorWidth) / _visibleDays;
+
+        return SizedBox(
+          height: 72,
+          child: ListView.separated(
+            controller: _scrollController,
+            scrollDirection: Axis.horizontal,
+            physics: const ClampingScrollPhysics(),
+            padding: const EdgeInsets.symmetric(horizontal: _horizontalPadding),
+            itemCount: 36500,
+            separatorBuilder: (_, _) => const SizedBox(width: _separatorWidth),
+            itemBuilder: (context, index) {
+              final date = _dateAt(index);
+              return _DateItem(
+                date: date,
+                itemWidth: _itemWidth,
+                isSelected: _dateOnly(date) == _selectedDate,
+                onTap: () {
+                  setState(() => _selectedDate = _dateOnly(date));
+                  widget.onDateSelected(date);
+                },
+              );
             },
-          );
-        },
-      ),
+          ),
+        );
+      },
     );
   }
 }
 
 class _DateItem extends StatelessWidget {
   final DateTime date;
+  final double itemWidth;
   final bool isSelected;
   final VoidCallback onTap;
 
@@ -96,6 +100,7 @@ class _DateItem extends StatelessWidget {
 
   const _DateItem({
     required this.date,
+    required this.itemWidth,
     required this.isSelected,
     required this.onTap,
   });
@@ -108,7 +113,7 @@ class _DateItem extends StatelessWidget {
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        width: _itemWidth,
+        width: itemWidth,
         decoration: BoxDecoration(
           color: isSelected ? _selectedGreen : Colors.transparent,
           borderRadius: BorderRadius.circular(20),

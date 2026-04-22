@@ -1,14 +1,14 @@
 // task_id maps to insertion order of tasks
-// 1 = Buy groceries, 3 = Team standup, 4 = Pay rent
+// 1 = Buy groceries, 3 = Team standup, 4 = Pay rent, 5 = Call dentist
 const List<Map<String, dynamic>> testRecurrencePatterns = [
-  // Buy groceries — every Saturday
+  // Buy groceries — daily
   {
     'task_id': 1,
-    'recurrence_type': 'weekly',
-    'weekdays': '6',
+    'recurrence_type': 'daily',
+    'weekdays': null,
     'day_of_month': null,
     'interval_count': 1,
-    'starts_on': '2024-01-15',
+    'starts_on': '2024-01-01',
     'ends_on': null,
   },
  
@@ -29,6 +29,17 @@ const List<Map<String, dynamic>> testRecurrencePatterns = [
     'recurrence_type': 'monthly',
     'weekdays': null,
     'day_of_month': 1,
+    'interval_count': 1,
+    'starts_on': '2024-01-01',
+    'ends_on': null,
+  },
+
+  // Call dentist — daily
+  {
+    'task_id': 5,
+    'recurrence_type': 'daily',
+    'weekdays': null,
+    'day_of_month': null,
     'interval_count': 1,
     'starts_on': '2024-01-01',
     'ends_on': null,

@@ -4,7 +4,9 @@ import '../logic/task_manager.dart';
 import 'task_card.dart';
 
 class TaskList extends StatefulWidget {
-  const TaskList({super.key});
+  final DateTime selectedDate;
+
+  const TaskList({super.key, required this.selectedDate});
 
   @override
   State<TaskList> createState() => _TaskListState();
@@ -35,6 +37,40 @@ class _TaskListState extends State<TaskList> {
     if (mounted) setState(() => _tasks!.removeWhere((t) => t.id == taskId));
   }
 
+  bool _occursOn(task, DateTime date) {
+    final r = task.recurrence;
+
+    if (r == null) {
+      if (task.dueTime == null) return true;
+      final due = DateTime.parse(task.dueTime!);
+      return due.year == date.year && due.month == date.month && due.day == date.day;
+    }
+
+    final d = DateTime(date.year, date.month, date.day);
+
+    if (r.startsOn != null) {
+      final start = DateTime.parse(r.startsOn!);
+      if (d.isBefore(DateTime(start.year, start.month, start.day))) return false;
+    }
+    if (r.endsOn != null) {
+      final end = DateTime.parse(r.endsOn!);
+      if (d.isAfter(DateTime(end.year, end.month, end.day))) return false;
+    }
+
+    switch (r.recurrenceType) {
+      case 'daily':
+        return true;
+      case 'weekly':
+        if (r.weekdays == null) return false;
+        final days = r.weekdays!.split(',').map(int.parse).toList();
+        return days.contains(date.weekday);
+      case 'monthly':
+        return r.dayOfMonth != null && date.day == r.dayOfMonth;
+      default:
+        return false;
+    }
+  }
+
   Future<void> _deleteTask(int taskId) async {
     await _manager.deleteTask(taskId);
     if (mounted) setState(() => _tasks!.removeWhere((t) => t.id == taskId));
@@ -45,11 +81,13 @@ class _TaskListState extends State<TaskList> {
     if (_error != null) return Center(child: Text('Error: $_error'));
     if (_tasks == null) return const Center(child: CircularProgressIndicator());
 
+    final filtered = _tasks!.where((t) => _occursOn(t, widget.selectedDate)).toList();
+
     return ListView.builder(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      itemCount: _tasks!.length,
+      itemCount: filtered.length,
       itemBuilder: (context, index) {
-        final task = _tasks![index];
+        final task = filtered[index];
         return Padding(
           padding: const EdgeInsets.only(bottom: 12),
           child: TaskCard(

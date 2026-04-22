@@ -369,13 +369,36 @@ class _TaskCardState extends State<TaskCard>
     for (final alert in widget.task.alerts) {
       final hasAlertPassed = _hasAlertTimePassed(alert.alertTime);
 
-      alertButtons.add(
-        _buildActionButton(
-          _iconForAlertType(alert.alertType),
-          _backgroundForAlertType(alert.alertType, hasAlertPassed),
-          _iconColourForAlertType(alert.alertType, hasAlertPassed),
-        ),
-      );
+      if (alert.alertType == 'imessage') {
+        alertButtons.add(
+          Container(
+            width: 28,
+            height: 28,
+            decoration: BoxDecoration(
+              color: _backgroundForAlertType(alert.alertType, hasAlertPassed),
+              borderRadius: BorderRadius.circular(9.5),
+              boxShadow: const [
+                BoxShadow(color: Color(0x26000000), blurRadius: 4, offset: Offset(0, 2)),
+              ],
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(6),
+              child: SvgPicture.asset(
+                'assets/icons/test_message_alert.svg',
+                colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
+              ),
+            ),
+          ),
+        );
+      } else {
+        alertButtons.add(
+          _buildActionButton(
+            _iconForAlertType(alert.alertType),
+            _backgroundForAlertType(alert.alertType, hasAlertPassed),
+            _iconColourForAlertType(alert.alertType, hasAlertPassed),
+          ),
+        );
+      }
       alertButtons.add(const SizedBox(width: 5));
     }
 

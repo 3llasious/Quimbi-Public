@@ -49,6 +49,7 @@ class _TaskListScreenState extends State<TaskListScreen> {
               ),
             ),
             child: SafeArea(
+              bottom: false,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -67,7 +68,7 @@ class _TaskListScreenState extends State<TaskListScreen> {
                         setState(() => _selectedDate = date),
                   ),
                   const SizedBox(height: 8),
-                  const Expanded(child: TaskList()),
+                  Expanded(child: TaskList(selectedDate: _selectedDate)),
                 ],
               ),
             ),
