@@ -169,7 +169,7 @@ CREATE TABLE alerts (
     for (final row in testTasks) { await db.insert('tasks', row); }
     for (final row in testSubtasks) { await db.insert('subtasks', row); }
     for (final row in testAlerts) { await db.insert('alerts', row); }
-    for (final link in linksData) { await db.insert('links', link.toMap()); }
+    for (final row in testLinks) { await db.insert('links', row); }
     for (final row in testTaskPeople) { await db.insert('task_people', row); }
     for (final row in testRecurrencePatterns) { await db.insert('recurrence_patterns', row); }
   }

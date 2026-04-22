@@ -2,6 +2,7 @@ import '../../models/task_model.dart';
 import '../../models/subtask_model.dart';
 import '../../models/recurrence_model.dart';
 import '../../models/alert_model.dart';
+import '../../models/link_model.dart';
 import '../../models/location_model.dart';
 import '../../models/person_model.dart';
 import 'tasks.dart';
@@ -62,7 +63,18 @@ List<TaskModel> loadTestTasks() {
             ))
         .toList();
 
-    final links = linksData.where((l) => l.taskId == id).toList();
+    final links = testLinks
+        .where((l) => l['task_id'] == id)
+        .toList()
+        .asMap()
+        .entries
+        .map((e) => LinkModel.fromMap({
+              'id': e.key + 1,
+              'task_id': id,
+              'label': e.value['label'],
+              'url': e.value['url'],
+            }))
+        .toList();
 
     final locationId = taskMap['location_id'] as int?;
     LocationModel? location;

@@ -69,4 +69,11 @@ class TaskRepository {
     final db = await DatabaseHelper.instance.database;
     await db.delete('tasks', where: 'id = ?', whereArgs: [taskId]);
   }
+
+  Future<String?> fetchUserName() async {
+    final db = await DatabaseHelper.instance.database;
+    final result = await db.query('loggedInUser', limit: 1);
+    if (result.isEmpty) return null;
+    return result.first['name'] as String?;
+  }
 }
