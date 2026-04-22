@@ -67,6 +67,10 @@ class TaskManager {
             .where((p) => p['task_id'] == taskId)
             .map(PersonModel.fromMap)
             .toList(),
+        completedDates: raw.completions
+            .where((c) => c['task_id'] == taskId)
+            .map((c) => c['done_date'] as String)
+            .toList(),
       );
     }).toList();
   }
@@ -77,7 +81,11 @@ class TaskManager {
         dueTime: task.dueTime,
       );
 
-  Future<void> completeTask(int taskId) => _repository.completeTask(taskId);
+  Future<void> completeTask(int taskId, String doneDate) =>
+      _repository.completeTask(taskId, doneDate);
+
+  Future<void> uncompleteTask(int taskId, String doneDate) =>
+      _repository.uncompleteTask(taskId, doneDate);
 
   Future<void> deleteTask(int taskId) => _repository.deleteTask(taskId);
 }

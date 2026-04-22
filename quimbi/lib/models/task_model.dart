@@ -19,6 +19,7 @@ class TaskModel {
   final List<LinkModel> links;
   final LocationModel? location;
   final List<PersonModel> people;
+  final List<String> completedDates;
 
   const TaskModel({
     required this.id,
@@ -34,7 +35,10 @@ class TaskModel {
     this.links = const [],
     this.location,
     this.people = const [],
+    this.completedDates = const [],
   });
+
+  bool isCompletedOn(String date) => completedDates.contains(date);
 
   factory TaskModel.fromMap(
     Map<String, dynamic> map, {
@@ -44,6 +48,7 @@ class TaskModel {
     List<LinkModel> links = const [],
     LocationModel? location,
     List<PersonModel> people = const [],
+    List<String> completedDates = const [],
   }) {
     return TaskModel(
       id: map['id'] as int,
@@ -59,6 +64,7 @@ class TaskModel {
       links: links,
       location: location,
       people: people,
+      completedDates: completedDates,
     );
   }
 }

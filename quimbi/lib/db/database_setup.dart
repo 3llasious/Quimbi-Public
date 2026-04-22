@@ -38,8 +38,14 @@ class DatabaseHelper {
 
     final db = await openDatabase(
       fullPath,
-      version: 1,
+      version: 2,
+      onConfigure: (db) async {
+        await db.execute('PRAGMA foreign_keys = ON');
+      },
       onCreate: _createTables,
+      onUpgrade: (db, oldVersion, newVersion) async {
+        if (oldVersion < 2) await _createTaskCompletionsTable(db);
+      },
     );
     debugPrint('[DB] database opened successfully');
     return db;
@@ -158,9 +164,23 @@ CREATE TABLE alerts (
       )
     ''');
 
+    await _createTaskCompletionsTable(db);
+
     debugPrint('[DB] all tables created, seeding data...');
     await _seedData(db);
     debugPrint('[DB] _createTables complete');
+  }
+
+  Future<void> _createTaskCompletionsTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS task_completions (
+        id        INTEGER PRIMARY KEY AUTOINCREMENT,
+        task_id   INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+        done_date TEXT NOT NULL,
+        UNIQUE(task_id, done_date)
+      )
+    ''');
+    debugPrint('[DB] task_completions table created');
   }
 
   Future<void> _seedData(Database db) async {

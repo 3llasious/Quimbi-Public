@@ -19,14 +19,20 @@ class AppColours {
 
 class TaskCard extends StatefulWidget {
   final TaskModel task;
+  final DateTime selectedDate;
   final VoidCallback onComplete;
   final VoidCallback onDelete;
+  final VoidCallback? onUndo;
+  final bool isCompleted;
 
   const TaskCard({
     super.key,
     required this.task,
+    required this.selectedDate,
     required this.onComplete,
     required this.onDelete,
+    this.onUndo,
+    this.isCompleted = false,
   });
 
   @override
@@ -43,11 +49,38 @@ class _TaskCardState extends State<TaskCard>
   int _secondsLeft = 0;
   bool _isCountdownVisible = false;
 
+  bool get _isToday {
+    final now = DateTime.now();
+    final d = widget.selectedDate;
+    return d.year == now.year && d.month == now.month && d.day == now.day;
+  }
+
+  bool get _isFuture {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final sel = DateTime(widget.selectedDate.year, widget.selectedDate.month, widget.selectedDate.day);
+    return sel.isAfter(today);
+  }
+
   @override
   void initState() {
     super.initState();
     _setupAnimation();
-    if (widget.task.isTimeSensitive) _startCountdown();
+    if (widget.task.isTimeSensitive && _isToday && !widget.isCompleted) _startCountdown();
+  }
+
+  @override
+  void didUpdateWidget(TaskCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final o = oldWidget.selectedDate;
+    final n = widget.selectedDate;
+    if (o.year != n.year || o.month != n.month || o.day != n.day) {
+      _countdownTimer?.cancel();
+      _countdownTimer = null;
+      _secondsLeft = 0;
+      _isCountdownVisible = false;
+      if (widget.task.isTimeSensitive && _isToday && !widget.isCompleted) _startCountdown();
+    }
   }
 
   @override
@@ -56,6 +89,9 @@ class _TaskCardState extends State<TaskCard>
     _countdownTimer?.cancel();
     super.dispose();
   }
+
+  String _dateStr(DateTime d) =>
+      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
   void _setupAnimation() {
     _expandController = AnimationController(
@@ -72,10 +108,11 @@ class _TaskCardState extends State<TaskCard>
     if (widget.task.alerts.isEmpty || widget.task.dueTime == null) return;
 
     final now = DateTime.now();
+    final d = widget.selectedDate;
 
     final alertTimes = widget.task.alerts.map((alert) {
       final parts = _parseTimeParts(alert.alertTime);
-      return DateTime(now.year, now.month, now.day,
+      return DateTime(d.year, d.month, d.day,
           int.parse(parts[0]), int.parse(parts[1]));
     }).toList();
 
@@ -83,7 +120,7 @@ class _TaskCardState extends State<TaskCard>
     final earliestAlert = alertTimes.first;
 
     final dueParts = _parseTimeParts(widget.task.dueTime!);
-    final dueDateTime = DateTime(now.year, now.month, now.day,
+    final dueDateTime = DateTime(d.year, d.month, d.day,
         int.parse(dueParts[0]), int.parse(dueParts[1]));
 
     if (now.isAfter(earliestAlert)) {
@@ -158,26 +195,36 @@ class _TaskCardState extends State<TaskCard>
 
   @override
   Widget build(BuildContext context) {
+    final canComplete = !widget.isCompleted && !_isFuture;
+    final canUndo = widget.isCompleted;
+
     return Dismissible(
-      key: Key(widget.task.id.toString()),
+      key: Key('${widget.isCompleted ? "done" : "active"}_${widget.task.id}'),
+      direction: (canComplete || canUndo)
+          ? DismissDirection.horizontal
+          : DismissDirection.endToStart,
       onDismissed: (direction) {
         if (direction == DismissDirection.startToEnd) {
-          widget.onComplete();
+          canUndo ? widget.onUndo?.call() : widget.onComplete();
         } else {
           widget.onDelete();
         }
       },
-      background: _buildSwipeBackground(
-        color: AppColours.green,
-        icon: Icons.check,
-        alignment: Alignment.centerLeft,
-      ),
+      background: (canComplete || canUndo)
+          ? _buildSwipeBackground(
+              color: widget.isCompleted ? const Color(0xFFB8AD96) : AppColours.green,
+              icon: widget.isCompleted ? Icons.undo : Icons.check,
+              alignment: Alignment.centerLeft,
+            )
+          : const SizedBox.shrink(),
       secondaryBackground: _buildSwipeBackground(
         color: AppColours.red,
         icon: Icons.delete_outline,
         alignment: Alignment.centerRight,
       ),
-      child: _buildCard(),
+      child: widget.isCompleted
+          ? Opacity(opacity: 0.5, child: _buildCard())
+          : _buildCard(),
     );
   }
 
@@ -407,6 +454,11 @@ class _TaskCardState extends State<TaskCard>
 
   bool _hasAlertTimePassed(String alertTime) {
     final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final sel = DateTime(
+        widget.selectedDate.year, widget.selectedDate.month, widget.selectedDate.day);
+    if (sel.isBefore(today)) return true;
+    if (!_isToday) return false;
     final timeParts = _parseTimeParts(alertTime);
     final alertDateTime = DateTime(
       now.year,

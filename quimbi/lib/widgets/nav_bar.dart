@@ -3,7 +3,16 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:glassmorphism/glassmorphism.dart';
 
 class QuimbiNavBar extends StatefulWidget {
-  const QuimbiNavBar({super.key});
+  final bool fabOpen;
+  final bool isPastDate;
+  final VoidCallback? onAddTap;
+
+  const QuimbiNavBar({
+    super.key,
+    this.fabOpen = false,
+    this.isPastDate = false,
+    this.onAddTap,
+  });
 
   @override
   State<QuimbiNavBar> createState() => _QuimbiNavBarState();
@@ -11,7 +20,6 @@ class QuimbiNavBar extends StatefulWidget {
 
 class _QuimbiNavBarState extends State<QuimbiNavBar> {
   String _active = 'todo';
-  bool _fabOpen = false;
 
   static const _orange = Color(0xFFFF4A00);
   static const _purple = Color(0xFF7B61FF);
@@ -162,8 +170,14 @@ class _QuimbiNavBarState extends State<QuimbiNavBar> {
   }
 
   Widget _buildFab() {
+    final iconColor = widget.isPastDate
+        ? const Color(0xFFC2BDB4)
+        : widget.fabOpen
+            ? _orange
+            : _purple;
+
     return GestureDetector(
-      onTap: () => setState(() => _fabOpen = !_fabOpen),
+      onTap: widget.isPastDate ? null : widget.onAddTap,
       child: Container(
         decoration: const BoxDecoration(
           shape: BoxShape.circle,
@@ -187,25 +201,25 @@ class _QuimbiNavBarState extends State<QuimbiNavBar> {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            Colors.white.withOpacity(0.55),
-            Colors.white.withOpacity(0.35),
+            Colors.white.withOpacity(widget.isPastDate ? 0.35 : 0.55),
+            Colors.white.withOpacity(widget.isPastDate ? 0.20 : 0.35),
           ],
         ),
         borderGradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            Colors.white.withOpacity(0.8),
-            Colors.white.withOpacity(0.3),
+            Colors.white.withOpacity(widget.isPastDate ? 0.4 : 0.8),
+            Colors.white.withOpacity(widget.isPastDate ? 0.1 : 0.3),
           ],
         ),
         child: AnimatedRotation(
-          turns: _fabOpen ? 0.125 : 0,
+          turns: widget.fabOpen ? 0.125 : 0,
           duration: const Duration(milliseconds: 300),
           curve: Curves.elasticOut,
           child: Icon(
             Icons.add,
-            color: _fabOpen ? _orange : _purple,
+            color: iconColor,
             size: 26,
           ),
         ),
