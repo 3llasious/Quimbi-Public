@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/task_model.dart';
-import '../models/alert_model.dart';
 import '../models/subtask_model.dart';
 
 class AppColours {
@@ -132,8 +131,10 @@ class _TaskCardState extends State<TaskCard>
 
   // Extracts HH:MM from either 'HH:MM', 'HH:MM:SS', or 'YYYY-MM-DD HH:MM:SS'
   List<String> _parseTimeParts(String rawTime) {
+    if (rawTime.isEmpty) return ['00', '00'];
     final timePart = rawTime.contains(' ') ? rawTime.split(' ').last : rawTime;
     final parts = timePart.split(':');
+    if (parts.isEmpty || parts[0].isEmpty) return ['00', '00'];
     return [parts[0], parts.length > 1 ? parts[1] : '00'];
   }
 
@@ -148,7 +149,7 @@ class _TaskCardState extends State<TaskCard>
         ? '$hours:$minutes:$seconds'
         : '$hours:$minutes';
 
-    return _secondsLeft < 0 ? 'overdue $timeString' : timeString;
+    return timeString;
   }
 
   Color _countdownColour() {
@@ -272,9 +273,12 @@ class _TaskCardState extends State<TaskCard>
           ),
         ),
         const SizedBox(height: 4),
-        _buildMetaRow(Icons.location_on_outlined, 'home.westminster'),
-        const SizedBox(height: 4),
-        _buildMetaRow(Icons.person_outline, 'Delilah Madden'),
+        if (widget.task.location != null)
+          _buildMetaRow(Icons.location_on_outlined, widget.task.location!.label),
+        if (widget.task.location != null) const SizedBox(height: 4),
+        if (widget.task.people.isNotEmpty)
+          _buildMetaRow(Icons.person_outline, widget.task.people.map((p) => p.name).join(', ')),
+        if (widget.task.people.isNotEmpty) const SizedBox(height: 4),
         const SizedBox(height: 8),
         _buildActionButtons(),
         SizeTransition(
@@ -293,7 +297,9 @@ class _TaskCardState extends State<TaskCard>
       padding: const EdgeInsets.only(bottom: 16),
       child: Row(
         children: [
-          Icon(Icons.timer_outlined, color: _countdownColour(), size: 14),
+          _secondsLeft < 0
+              ? _buildOverdueIcon(size: 14)
+              : Icon(Icons.timer_outlined, color: _countdownColour(), size: 14),
           const SizedBox(width: 5),
           Text(
             _formatCountdown(),
@@ -301,6 +307,33 @@ class _TaskCardState extends State<TaskCard>
               color: _countdownColour(),
               fontSize: 13,
               fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildOverdueIcon({double size = 14}) {
+    return SizedBox(
+      width: size,
+      height: size,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          SvgPicture.asset(
+            'assets/icons/danger.svg',
+            width: size,
+            height: size,
+            colorFilter: const ColorFilter.mode(AppColours.overdueRed, BlendMode.srcIn),
+          ),
+          Text(
+            '!',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: size * 0.6,
+              fontWeight: FontWeight.bold,
+              height: 1,
             ),
           ),
         ],
@@ -521,7 +554,9 @@ class _TaskCardState extends State<TaskCard>
         if (!_isExpanded && widget.task.isTimeSensitive && _isCountdownVisible)
           Row(
             children: [
-              Icon(Icons.timer_outlined, color: _countdownColour(), size: 12),
+              _secondsLeft < 0
+                  ? _buildOverdueIcon(size: 12)
+                  : Icon(Icons.timer_outlined, color: _countdownColour(), size: 12),
               const SizedBox(width: 5),
               Text(
                 _formatCountdown(),

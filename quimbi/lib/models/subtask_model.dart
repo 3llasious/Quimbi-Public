@@ -13,5 +13,15 @@ class SubtaskModel {
     required this.isCompleted,
     this.position,
   });
+
+  factory SubtaskModel.fromMap(Map<String, dynamic> map) {
+    return SubtaskModel(
+      id: map['id'] as int,
+      taskId: map['task_id'] as int,
+      title: map['title'] as String,
+      isCompleted: (map['completed'] as int) == 1,
+      position: map['position'] as int?,
+    );
+  }
 }
  

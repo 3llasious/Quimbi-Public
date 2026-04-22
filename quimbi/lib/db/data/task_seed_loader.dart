@@ -2,7 +2,6 @@ import '../../models/task_model.dart';
 import '../../models/subtask_model.dart';
 import '../../models/recurrence_model.dart';
 import '../../models/alert_model.dart';
-import '../../models/link_model.dart';
 import '../../models/location_model.dart';
 import '../../models/person_model.dart';
 import 'tasks.dart';

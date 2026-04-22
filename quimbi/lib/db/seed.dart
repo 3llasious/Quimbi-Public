@@ -9,7 +9,7 @@ import 'data/people_data.dart';
 import 'data/task_people_data.dart';
 
 Future<void> seedDatabase() async {
-  final db = await DatabaseHelper().database;
+  final db = await DatabaseHelper.instance.database;
 
   await clearAllTables(db);
   await insertAllLocations(db);

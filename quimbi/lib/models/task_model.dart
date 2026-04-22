@@ -35,4 +35,30 @@ class TaskModel {
     this.location,
     this.people = const [],
   });
+
+  factory TaskModel.fromMap(
+    Map<String, dynamic> map, {
+    List<SubtaskModel> subtasks = const [],
+    List<AlertModel> alerts = const [],
+    RecurrenceModel? recurrence,
+    List<LinkModel> links = const [],
+    LocationModel? location,
+    List<PersonModel> people = const [],
+  }) {
+    return TaskModel(
+      id: map['id'] as int,
+      title: map['title'] as String,
+      isTimeSensitive: (map['time_sensitive'] as int) == 1,
+      dueTime: map['due_time'] as String?,
+      isCompleted: (map['completed'] as int) == 1,
+      createdAt: map['created_at'] as String,
+      locationId: map['location_id'] as int?,
+      subtasks: subtasks,
+      alerts: alerts,
+      recurrence: recurrence,
+      links: links,
+      location: location,
+      people: people,
+    );
+  }
 }

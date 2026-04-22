@@ -1,33 +1,50 @@
-// task_id maps to insertion order of tasks
-// 2 = Submit tax return, 3 = Team standup, 4 = Pay rent
-const List<Map<String, dynamic>> testAlerts = [
-  // Submit tax return — notification the morning of
-  {
-    'task_id': 2,
-    'alert_time': '2024-01-31 09:00:00',
-    'alert_type': 'notification',
-    'is_active': 1,
-  },
+String _fmtTime(int hour, int minute) {
+  final now = DateTime.now();
+  return '${now.year.toString().padLeft(4, '0')}-'
+      '${now.month.toString().padLeft(2, '0')}-'
+      '${now.day.toString().padLeft(2, '0')} '
+      '${hour.toString().padLeft(2, '0')}:'
+      '${minute.toString().padLeft(2, '0')}:00';
+}
 
-  // Team standup — phone alarm 30 mins before
-  {
-    'task_id': 3,
-    'alert_time': '2024-01-15 09:00:00',
-    'alert_type': 'phone_alarm',
-    'is_active': 1,
-  },
+List<Map<String, dynamic>> get testAlerts {
+  return [
+    // Submit tax return — due 17:00, alert 30 mins before at 16:30
+    {
+      'task_id': 2,
+      'alert_time': _fmtTime(16, 30),
+      'alert_type': 'notification',
+      'is_active': 1,
+    },
 
-  // Pay rent — two alerts, different types
-  {
-    'task_id': 4,
-    'alert_time': '2024-01-29 09:00:00',
-    'alert_type': 'notification',
-    'is_active': 1,
-  },
-  {
-    'task_id': 4,
-    'alert_time': '2024-01-29 09:00:00',
-    'alert_type': 'imessage',
-    'is_active': 1,
-  },
-];
+    // Team standup — due 09:00, alert 1hr before at 08:00
+    {
+      'task_id': 3,
+      'alert_time': _fmtTime(8, 0),
+      'alert_type': 'phone_alarm',
+      'is_active': 1,
+    },
+    // Team standup — 30 mins before at 08:30
+    {
+      'task_id': 3,
+      'alert_time': _fmtTime(8, 30),
+      'alert_type': 'notification',
+      'is_active': 1,
+    },
+
+    // Pay rent — due 18:00, alert 1hr before at 17:00
+    {
+      'task_id': 4,
+      'alert_time': _fmtTime(17, 0),
+      'alert_type': 'notification',
+      'is_active': 1,
+    },
+    // Pay rent — 30 mins before at 17:30
+    {
+      'task_id': 4,
+      'alert_time': _fmtTime(17, 30),
+      'alert_type': 'imessage',
+      'is_active': 1,
+    },
+  ];
+}

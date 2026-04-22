@@ -18,5 +18,18 @@ class RecurrenceModel {
     this.startsOn,
     this.endsOn,
   });
+
+  factory RecurrenceModel.fromMap(Map<String, dynamic> map) {
+    return RecurrenceModel(
+      id: map['id'] as int,
+      taskId: map['task_id'] as int,
+      recurrenceType: map['recurrence_type'] as String,
+      weekdays: map['weekdays'] as String?,
+      dayOfMonth: map['day_of_month'] as int?,
+      intervalCount: map['interval_count'] as int?,
+      startsOn: map['starts_on'] as String?,
+      endsOn: map['ends_on'] as String?,
+    );
+  }
 }
  

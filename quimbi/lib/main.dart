@@ -1,7 +1,19 @@
 import 'package:flutter/material.dart';
-import 'widgets/task_list.dart';
+import 'package:flutter/foundation.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+import 'package:sqflite_common_ffi_web/sqflite_ffi_web.dart';
+import 'screens/task_list_screen.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  if (kIsWeb) {
+    databaseFactory = databaseFactoryFfiWeb;
+  } else if (defaultTargetPlatform == TargetPlatform.macOS ||
+      defaultTargetPlatform == TargetPlatform.linux ||
+      defaultTargetPlatform == TargetPlatform.windows) {
+    sqfliteFfiInit();
+    databaseFactory = databaseFactoryFfi;
+  }
   runApp(const QuimbiApp());
 }
 
@@ -17,9 +29,7 @@ class QuimbiApp extends StatelessWidget {
         fontFamily: 'Anonymous Pro',
         scaffoldBackgroundColor: const Color(0xFFF5F0EA),
       ),
-      home: Scaffold(
-        body: TaskList(),
-      ),
+      home: const TaskListScreen(),
     );
   }
 }
