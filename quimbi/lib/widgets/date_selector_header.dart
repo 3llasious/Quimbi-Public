@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-const _selectedGreen = Color(0xFF0BD172);
+const _selectedGreen = Color(0xFF7DBF87);
 
 const double _separatorWidth = 8;
 const double _horizontalPadding = 16;
@@ -116,7 +116,7 @@ class _DateItem extends StatelessWidget {
         width: itemWidth,
         decoration: BoxDecoration(
           color: isSelected ? _selectedGreen : Colors.transparent,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(25),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,

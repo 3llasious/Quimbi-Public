@@ -4,9 +4,10 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/task_model.dart';
 import '../models/subtask_model.dart';
+import 'edit_task_modal.dart';
 
 class AppColours {
-  static const orange = Color(0xFFFF4A00);
+  static const orange = Color(0xFFF55420);
   static const peach = Color(0xFFFFC4AC);
   static const slate = Color(0xFF4D5B71);
   static const lightSlate = Color(0xFF8D9EB7);
@@ -150,6 +151,16 @@ class _TaskCardState extends State<TaskCard>
     });
   }
 
+ void _openEditModal() {
+  showDialog(
+    context: context,
+    builder: (_) => EditTaskModal(
+      task: widget.task,
+      onSaved: () {}, // wire up to db later
+    ),
+  );
+}
+
   void _toggleExpanded() {
     setState(() {
       _isExpanded = !_isExpanded;
@@ -198,33 +209,49 @@ class _TaskCardState extends State<TaskCard>
     final canComplete = !widget.isCompleted && !_isFuture;
     final canUndo = widget.isCompleted;
 
-    return Dismissible(
-      key: Key('${widget.isCompleted ? "done" : "active"}_${widget.task.id}'),
-      direction: (canComplete || canUndo)
-          ? DismissDirection.horizontal
-          : DismissDirection.endToStart,
-      onDismissed: (direction) {
-        if (direction == DismissDirection.startToEnd) {
-          canUndo ? widget.onUndo?.call() : widget.onComplete();
-        } else {
-          widget.onDelete();
-        }
-      },
-      background: (canComplete || canUndo)
-          ? _buildSwipeBackground(
-              color: widget.isCompleted ? const Color(0xFFB8AD96) : AppColours.green,
-              icon: widget.isCompleted ? Icons.undo : Icons.check,
-              alignment: Alignment.centerLeft,
-            )
-          : const SizedBox.shrink(),
-      secondaryBackground: _buildSwipeBackground(
-        color: AppColours.red,
-        icon: Icons.delete_outline,
-        alignment: Alignment.centerRight,
+    return Container(
+      decoration: const BoxDecoration(
+         color: Colors.white,
+        borderRadius: BorderRadius.all(Radius.circular(28)),
+        boxShadow: [
+          BoxShadow(
+            color: Color(0xFFD4C9BC),
+            blurRadius: 4,
+            offset: Offset(4, 4),
+          ),
+        ],
       ),
-      child: widget.isCompleted
-          ? Opacity(opacity: 0.5, child: _buildCard())
-          : _buildCard(),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(28),
+        child: Dismissible(
+          key: Key('${widget.isCompleted ? "done" : "active"}_${widget.task.id}'),
+          direction: (canComplete || canUndo)
+              ? DismissDirection.horizontal
+              : DismissDirection.endToStart,
+          onDismissed: (direction) {
+            if (direction == DismissDirection.startToEnd) {
+              canUndo ? widget.onUndo?.call() : widget.onComplete();
+            } else {
+              widget.onDelete();
+            }
+          },
+          background: (canComplete || canUndo)
+              ? _buildSwipeBackground(
+                  color: widget.isCompleted ? const Color(0xFFB8AD96) : AppColours.green,
+                  icon: widget.isCompleted ? Icons.undo : Icons.check,
+                  alignment: Alignment.centerLeft,
+                )
+              : const SizedBox.shrink(),
+          secondaryBackground: _buildSwipeBackground(
+            color: AppColours.red,
+            icon: Icons.delete_outline,
+            alignment: Alignment.centerRight,
+          ),
+          child: widget.isCompleted
+              ? Opacity(opacity: 0.5, child: _buildCard())
+              : _buildCard(),
+        ),
+      ),
     );
   }
 
@@ -246,16 +273,9 @@ class _TaskCardState extends State<TaskCard>
 
   Widget _buildCard() {
     return Container(
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(28),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x40000000),
-            blurRadius: 4,
-            offset: Offset(4, 4),
-          ),
-        ],
+        borderRadius: BorderRadius.all(Radius.circular(28)),
       ),
       padding: const EdgeInsets.fromLTRB(20, 12, 16, 12),
       child: IntrinsicHeight(
@@ -425,7 +445,7 @@ class _TaskCardState extends State<TaskCard>
               color: _backgroundForAlertType(alert.alertType, hasAlertPassed),
               borderRadius: BorderRadius.circular(9.5),
               boxShadow: const [
-                BoxShadow(color: Color(0x26000000), blurRadius: 4, offset: Offset(0, 2)),
+                 BoxShadow(color: Color(0x26000000), blurRadius: 4, offset: Offset(0, 2)),
               ],
             ),
             child: Padding(
@@ -647,13 +667,16 @@ class _TaskCardState extends State<TaskCard>
     );
   }
 
-  Widget _buildIconColumn() {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        SvgPicture.asset('assets/icons/copy.svg', width: 22, height: 22),
-        SvgPicture.asset('assets/icons/Button OnClick- edit.svg', width: 17, height: 17),
-      ],
-    );
-  }
+Widget _buildIconColumn() {
+  return Column(
+    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    children: [
+      SvgPicture.asset('assets/icons/copy.svg', width: 22, height: 22),
+      GestureDetector(
+        onTap: () => _openEditModal(),
+        child: SvgPicture.asset('assets/icons/Button OnClick- edit.svg', width: 17, height: 17),
+      ),
+    ],
+  );
+}
 }

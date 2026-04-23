@@ -73,7 +73,7 @@ class _TaskListScreenState extends State<TaskListScreen> {
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [Colors.white, Color(0xFFF4EBD2)],
+                colors: [Colors.white, Color(0xFFF5EFE6)],
               ),
             ),
             child: SafeArea(

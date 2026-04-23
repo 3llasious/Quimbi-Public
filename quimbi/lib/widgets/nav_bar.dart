@@ -21,7 +21,7 @@ class QuimbiNavBar extends StatefulWidget {
 class _QuimbiNavBarState extends State<QuimbiNavBar> {
   String _active = 'todo';
 
-  static const _orange = Color(0xFFFF4A00);
+  static const _orange = Color(0xFFF55420);
   static const _purple = Color(0xFF7B61FF);
 
   @override
@@ -43,38 +43,39 @@ class _QuimbiNavBarState extends State<QuimbiNavBar> {
   }
 
   Widget _buildPill() {
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(999),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x40000000),
-            blurRadius: 4,
-            offset: Offset(0, 4),
-          ),
-        ],
-      ),
-      child: GlassmorphicContainer(
+  return Container(
+    decoration: BoxDecoration(
+      borderRadius: BorderRadius.circular(999),
+      boxShadow: const [
+        BoxShadow(
+          color: Color(0x26000000),
+          blurRadius: 16,
+          spreadRadius: 4,
+          offset: Offset(0, 4),
+        ),
+      ],
+    ),
+    child: GlassmorphicContainer(
       width: 260,
       height: 72,
       borderRadius: 999,
-      blur: 20,
+      blur: 25,
       alignment: Alignment.center,
-      border: 1.5,
+      border: 2,
       linearGradient: LinearGradient(
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
         colors: [
-          Colors.white.withOpacity(0.65),
-          Colors.white.withOpacity(0.45),
+          Colors.white.withOpacity(0.35),
+          Colors.white.withOpacity(0.15),
         ],
       ),
       borderGradient: LinearGradient(
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
         colors: [
-          Colors.white.withOpacity(0.9),
-          Colors.white.withOpacity(0.1),
+          Colors.white.withOpacity(0.8),
+          Colors.white.withOpacity(0.3),
         ],
       ),
       child: Padding(
@@ -89,8 +90,8 @@ class _QuimbiNavBarState extends State<QuimbiNavBar> {
         ),
       ),
     ),
-    );
-  }
+  );
+}
 
   Widget _buildNavItem(String key, String? svgString) {
     final isActive = _active == key;
