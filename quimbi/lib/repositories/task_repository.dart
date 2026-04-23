@@ -157,6 +157,75 @@ class TaskRepository {
     );
   }
 
+  Future<void> updateTask({
+    required int taskId,
+    required String title,
+    required bool isTimeSensitive,
+    String? dueTime,
+    String? recurrenceType,
+    List<int>? weekdays,
+    int? dayOfMonth,
+    List<Map<String, String>>? alerts,
+    int? existingLocationId,
+    String? locationLabel,
+    List<String>? people,
+  }) async {
+    final db = await DatabaseHelper.instance.database;
+
+    await db.update(
+      'tasks',
+      {
+        'title': title,
+        'time_sensitive': isTimeSensitive ? 1 : 0,
+        'due_time': dueTime,
+      },
+      where: 'id = ?',
+      whereArgs: [taskId],
+    );
+
+    // replace alerts
+    await db.delete('alerts', where: 'task_id = ?', whereArgs: [taskId]);
+    for (final alert in alerts ?? []) {
+      await db.insert('alerts', {
+        'task_id': taskId,
+        'alert_time': alert['time']!,
+        'alert_type': alert['type']!,
+        'is_active': 1,
+      });
+    }
+
+    // replace recurrence
+    await db.delete('recurrence_patterns', where: 'task_id = ?', whereArgs: [taskId]);
+    if (recurrenceType != null) {
+      await db.insert('recurrence_patterns', {
+        'task_id': taskId,
+        'recurrence_type': recurrenceType,
+        if (weekdays != null) 'weekdays': weekdays.join(','),
+        if (dayOfMonth != null) 'day_of_month': dayOfMonth,
+      });
+    }
+
+    // update location
+    final label = locationLabel?.trim() ?? '';
+    if (label.isEmpty) {
+      await db.update('tasks', {'location_id': null}, where: 'id = ?', whereArgs: [taskId]);
+    } else if (existingLocationId != null) {
+      await db.update('locations', {'label': label}, where: 'id = ?', whereArgs: [existingLocationId]);
+    } else {
+      final locId = await db.insert('locations', {'label': label});
+      await db.update('tasks', {'location_id': locId}, where: 'id = ?', whereArgs: [taskId]);
+    }
+
+    // replace people
+    await db.delete('task_people', where: 'task_id = ?', whereArgs: [taskId]);
+    for (final name in people ?? []) {
+      if (name.isNotEmpty) {
+        final personId = await db.insert('people', {'name': name});
+        await db.insert('task_people', {'task_id': taskId, 'person_id': personId});
+      }
+    }
+  }
+
   Future<void> deleteTask(int taskId) async {
     final db = await DatabaseHelper.instance.database;
     await db.delete('tasks', where: 'id = ?', whereArgs: [taskId]);

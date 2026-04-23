@@ -4,20 +4,18 @@ import '../models/task_model.dart';
 import '../repositories/task_repository.dart';
 import 'day_of_month_dialog.dart';
 
-class EditTaskModal extends StatefulWidget {
+class CopyTaskModal extends StatefulWidget {
   final TaskModel task;
   final VoidCallback onSaved;
-  final DateTime selectedDate;
 
-  const EditTaskModal({
+  const CopyTaskModal({
     super.key,
     required this.task,
     required this.onSaved,
-    required this.selectedDate,
   });
 
   @override
-  State<EditTaskModal> createState() => _EditTaskModalState();
+  State<CopyTaskModal> createState() => _CopyTaskModalState();
 }
 
 class _Alert {
@@ -26,7 +24,7 @@ class _Alert {
   _Alert({required this.time, this.type = 'notification'});
 }
 
-class _EditTaskModalState extends State<EditTaskModal> {
+class _CopyTaskModalState extends State<CopyTaskModal> {
   static const _orange = Color(0xFFFF4A00);
   static const _purple = Color(0xFF7B61FF);
   static const _lightSlate = Color(0xFF8D9EB7);
@@ -35,6 +33,9 @@ class _EditTaskModalState extends State<EditTaskModal> {
   late TextEditingController _locationController;
   late TextEditingController _personController;
   late bool _isTimeSensitive;
+
+  // start date
+  late DateTime _startDate;
 
   // alerts
   final List<_Alert> _alerts = [];
@@ -56,12 +57,12 @@ class _EditTaskModalState extends State<EditTaskModal> {
   @override
   void initState() {
     super.initState();
+    _startDate = DateTime.now();
     _titleController = TextEditingController(text: widget.task.title);
     _locationController = TextEditingController(text: widget.task.location?.label ?? '');
     _personController = TextEditingController(text: widget.task.people.map((p) => p.name).join(', '));
     _isTimeSensitive = widget.task.isTimeSensitive;
 
-    // pre-fill all alerts
     for (final a in widget.task.alerts) {
       final parts = a.alertTime.split(':');
       _alerts.add(_Alert(
@@ -70,7 +71,6 @@ class _EditTaskModalState extends State<EditTaskModal> {
       ));
     }
 
-    // pre-fill due time (only if a time component exists, not a date-only anchor string)
     if (widget.task.dueTime != null) {
       final raw = widget.task.dueTime!;
       final timePart = raw.contains(' ') ? raw.split(' ').last : raw;
@@ -84,20 +84,17 @@ class _EditTaskModalState extends State<EditTaskModal> {
       }
     }
 
-    // pre-fill recurrence
-  if (widget.task.recurrence != null) {
-  final r = widget.task.recurrence!;
-  if (r.recurrenceType == 'daily') {
-    _isDaily = true;
-  } else if (r.recurrenceType == 'weekly' && r.weekdays != null) {
-    _weekdays.addAll(
-      r.weekdays!.split(',').map((d) => int.parse(d.trim())),
-    );
-  } else if (r.recurrenceType == 'monthly' && r.dayOfMonth != null) {
-    _useCalendar = true;
-    _dayOfMonth = r.dayOfMonth;
-  }
-}
+    if (widget.task.recurrence != null) {
+      final r = widget.task.recurrence!;
+      if (r.recurrenceType == 'daily') {
+        _isDaily = true;
+      } else if (r.recurrenceType == 'weekly' && r.weekdays != null) {
+        _weekdays.addAll(r.weekdays!.split(',').map((d) => int.parse(d.trim())));
+      } else if (r.recurrenceType == 'monthly' && r.dayOfMonth != null) {
+        _useCalendar = true;
+        _dayOfMonth = r.dayOfMonth;
+      }
+    }
   }
 
   @override
@@ -113,6 +110,23 @@ class _EditTaskModalState extends State<EditTaskModal> {
 
   String _fmtDate(DateTime d) =>
       '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+  String _dateLabel(DateTime d) {
+    final today = DateTime.now();
+    if (d.year == today.year && d.month == today.month && d.day == today.day) return 'today';
+    final tomorrow = today.add(const Duration(days: 1));
+    if (d.year == tomorrow.year && d.month == tomorrow.month && d.day == tomorrow.day) return 'tomorrow';
+    const months = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
+    return '${d.day} ${months[d.month - 1]}';
+  }
+
+  Future<void> _pickStartDate() async {
+    final picked = await showDialog<DateTime>(
+      context: context,
+      builder: (_) => DayOfMonthDialog(accent: _accent, returnFullDate: true),
+    );
+    if (picked != null) setState(() => _startDate = picked);
+  }
 
   void _cycleAlertType(String current, ValueChanged<String> onChanged) {
     final idx = _alertTypes.indexOf(current);
@@ -147,6 +161,57 @@ class _EditTaskModalState extends State<EditTaskModal> {
     if (picked != null) onPicked(picked);
   }
 
+  Future<void> _save() async {
+    String? recurrenceType;
+    List<int>? weekdays;
+    int? dayOfMonth;
+    if (_isDaily) {
+      recurrenceType = 'daily';
+    } else if (_useCalendar && _dayOfMonth != null) {
+      recurrenceType = 'monthly';
+      dayOfMonth = _dayOfMonth;
+    } else if (_weekdays.isNotEmpty) {
+      recurrenceType = 'weekly';
+      weekdays = _weekdays.toList()..sort();
+    }
+
+    final alerts = _alerts.map((a) => {'time': _fmtTime(a.time), 'type': a.type}).toList();
+    if (_isTimeSensitive && _dueTime != null) {
+      alerts.insert(0, {'time': _fmtTime(_dueTime!), 'type': _dueAlertType});
+    }
+
+    final dueTimeStr = _dueTime != null
+        ? '${_fmtDate(_startDate)} ${_fmtTime(_dueTime!)}:00'
+        : null;
+
+    await TaskRepository().addFullTask(
+      title: _titleController.text.trim(),
+      isTimeSensitive: _isTimeSensitive,
+      dueTime: dueTimeStr,
+      recurrenceType: recurrenceType,
+      weekdays: weekdays,
+      dayOfMonth: dayOfMonth,
+      startsOn: recurrenceType != null ? _fmtDate(_startDate) : null,
+      alerts: alerts,
+      locationLabel: _locationController.text.trim().isEmpty ? null : _locationController.text.trim(),
+      people: _personController.text.split(',').map((s) => s.trim()).where((s) => s.isNotEmpty).toList(),
+    );
+  }
+
+  Future<void> _toggleCalendar() async {
+    if (_useCalendar) {
+      setState(() { _useCalendar = false; _dayOfMonth = null; });
+    } else {
+      final day = await showDialog<int>(
+        context: context,
+        builder: (_) => DayOfMonthDialog(accent: _accent),
+      );
+      if (day != null) {
+        setState(() { _useCalendar = true; _dayOfMonth = day; _weekdays.clear(); _isDaily = false; });
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Dialog(
@@ -157,11 +222,7 @@ class _EditTaskModalState extends State<EditTaskModal> {
           color: Colors.white,
           borderRadius: BorderRadius.circular(28),
           boxShadow: const [
-            BoxShadow(
-              color: Color(0xFFD4C9BC),
-              blurRadius: 16,
-              offset: Offset(0, 8),
-            ),
+            BoxShadow(color: Color(0xFFD4C9BC), blurRadius: 16, offset: Offset(0, 8)),
           ],
         ),
         child: Column(
@@ -174,6 +235,8 @@ class _EditTaskModalState extends State<EditTaskModal> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _buildHeader(),
+                    const SizedBox(height: 12),
+                    _buildStartDateRow(),
                     const SizedBox(height: 12),
                     _buildTitleField(),
                     const SizedBox(height: 12),
@@ -213,7 +276,7 @@ class _EditTaskModalState extends State<EditTaskModal> {
         ),
         const Spacer(),
         Text(
-          'save edits?',
+          'copy & save edits?',
           style: TextStyle(
             fontFamily: 'Anonymous Pro',
             fontSize: 13,
@@ -245,6 +308,22 @@ class _EditTaskModalState extends State<EditTaskModal> {
     );
   }
 
+  Widget _buildStartDateRow() {
+    return GestureDetector(
+      onTap: _pickStartDate,
+      child: Row(
+        children: [
+          Icon(Icons.calendar_today_outlined, color: _lightSlate, size: 20),
+          const SizedBox(width: 10),
+          Text(
+            'starts : ${_dateLabel(_startDate)}',
+            style: const TextStyle(fontFamily: 'Anonymous Pro', fontSize: 15, color: _lightSlate),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildTitleField() {
     return TextField(
       controller: _titleController,
@@ -271,11 +350,7 @@ class _EditTaskModalState extends State<EditTaskModal> {
         Expanded(
           child: TextField(
             controller: _locationController,
-            style: const TextStyle(
-              fontFamily: 'Anonymous Pro',
-              fontSize: 15,
-              color: _lightSlate,
-            ),
+            style: const TextStyle(fontFamily: 'Anonymous Pro', fontSize: 15, color: _lightSlate),
             decoration: InputDecoration(
               enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: _accent, width: 1)),
               focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: _accent, width: 1.5)),
@@ -361,24 +436,16 @@ class _EditTaskModalState extends State<EditTaskModal> {
     );
   }
 
-  Widget _buildAlertTypePicker({
-    required String current,
-    required ValueChanged<String> onCycle,
-  }) {
+  Widget _buildAlertTypePicker({required String current, required ValueChanged<String> onCycle}) {
     return GestureDetector(
       onTap: () => _cycleAlertType(current, onCycle),
       child: Column(
         children: [
           Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: _accent,
-              shape: BoxShape.circle,
-            ),
+            width: 36, height: 36,
+            decoration: BoxDecoration(color: _accent, shape: BoxShape.circle),
             child: Center(child: _iconForAlertType(current)),
           ),
-        
           Icon(Icons.keyboard_arrow_down, size: 14, color: Colors.grey.shade400),
         ],
       ),
@@ -391,7 +458,6 @@ class _EditTaskModalState extends State<EditTaskModal> {
       children: [
         Row(
           children: [
-            // repeat — lights up for weekly or monthly
             AnimatedContainer(
               duration: const Duration(milliseconds: 200),
               width: 36, height: 36,
@@ -403,7 +469,6 @@ class _EditTaskModalState extends State<EditTaskModal> {
                 color: (_weekdays.isNotEmpty || _useCalendar) ? Colors.white : Colors.grey.shade500)),
             ),
             const SizedBox(width: 8),
-            // 1 — once
             GestureDetector(
               onTap: () => setState(() { _isDaily = false; _weekdays.clear(); _useCalendar = false; _dayOfMonth = null; }),
               child: AnimatedContainer(
@@ -420,7 +485,6 @@ class _EditTaskModalState extends State<EditTaskModal> {
               ),
             ),
             const SizedBox(width: 8),
-            // ∞ — daily
             GestureDetector(
               onTap: () => setState(() { _isDaily = true; _weekdays.clear(); _useCalendar = false; _dayOfMonth = null; }),
               child: AnimatedContainer(
@@ -447,101 +511,34 @@ class _EditTaskModalState extends State<EditTaskModal> {
   }
 
   Widget _buildWeekdayPicker() {
-  const labels = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
-  return Row(
-    children: List.generate(7, (i) {
-      final day = i + 1;
-      final selected = _weekdays.contains(day);
-      return Padding(
-        padding: const EdgeInsets.only(right: 6),
-        child: GestureDetector(
-          onTap: () => setState(() {
-            _isDaily = false;
-            selected ? _weekdays.remove(day) : _weekdays.add(day);
-          }),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 150),
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: selected ? _accent : const Color(0xFFF0F0F0),
-              shape: BoxShape.circle,
-            ),
-            child: Center(
-              child: Text(
-                labels[i],
-                style: TextStyle(
-                  fontFamily: 'Anonymous Pro',
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  color: selected ? Colors.white : Colors.grey.shade500,
-                ),
+    const labels = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+    return Row(
+      children: List.generate(7, (i) {
+        final day = i + 1;
+        final selected = _weekdays.contains(day);
+        return Padding(
+          padding: const EdgeInsets.only(right: 6),
+          child: GestureDetector(
+            onTap: () => setState(() {
+              _isDaily = false;
+              selected ? _weekdays.remove(day) : _weekdays.add(day);
+            }),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              width: 36, height: 36,
+              decoration: BoxDecoration(
+                color: selected ? _accent : const Color(0xFFF0F0F0),
+                shape: BoxShape.circle,
               ),
+              child: Center(child: Text(labels[i], style: TextStyle(
+                fontFamily: 'Anonymous Pro', fontSize: 12, fontWeight: FontWeight.bold,
+                color: selected ? Colors.white : Colors.grey.shade500,
+              ))),
             ),
           ),
-        ),
-      );
-    }),
-  );
-}
-
-  Future<void> _save() async {
-    String? recurrenceType;
-    List<int>? weekdays;
-    int? dayOfMonth;
-    if (_isDaily) {
-      recurrenceType = 'daily';
-    } else if (_useCalendar && _dayOfMonth != null) {
-      recurrenceType = 'monthly';
-      dayOfMonth = _dayOfMonth;
-    } else if (_weekdays.isNotEmpty) {
-      recurrenceType = 'weekly';
-      weekdays = _weekdays.toList()..sort();
-    }
-
-    final alerts = _alerts.map((a) => {'time': _fmtTime(a.time), 'type': a.type}).toList();
-    if (_isTimeSensitive && _dueTime != null) {
-      alerts.insert(0, {'time': _fmtTime(_dueTime!), 'type': _dueAlertType});
-    }
-
-    String? dueTimeStr;
-    if (_dueTime != null) {
-      final existing = widget.task.dueTime;
-      final datePart = (existing != null && existing.contains(' '))
-          ? existing.split(' ').first
-          : _fmtDate(widget.selectedDate);
-      dueTimeStr = '$datePart ${_fmtTime(_dueTime!)}:00';
-    } else if (recurrenceType == null) {
-      dueTimeStr = _fmtDate(widget.selectedDate);
-    }
-
-    await TaskRepository().updateTask(
-      taskId: widget.task.id,
-      title: _titleController.text.trim(),
-      isTimeSensitive: _isTimeSensitive,
-      dueTime: dueTimeStr,
-      recurrenceType: recurrenceType,
-      weekdays: weekdays,
-      dayOfMonth: dayOfMonth,
-      alerts: alerts,
-      existingLocationId: widget.task.locationId,
-      locationLabel: _locationController.text,
-      people: _personController.text.split(',').map((s) => s.trim()).where((s) => s.isNotEmpty).toList(),
+        );
+      }),
     );
-  }
-
-  Future<void> _toggleCalendar() async {
-    if (_useCalendar) {
-      setState(() { _useCalendar = false; _dayOfMonth = null; });
-    } else {
-      final day = await showDialog<int>(
-        context: context,
-        builder: (_) => DayOfMonthDialog(accent: _accent),
-      );
-      if (day != null) {
-        setState(() { _useCalendar = true; _dayOfMonth = day; _weekdays.clear(); _isDaily = false; });
-      }
-    }
   }
 
   Widget _buildCalendarRow() {
@@ -564,11 +561,7 @@ class _EditTaskModalState extends State<EditTaskModal> {
           const SizedBox(width: 12),
           Text(
             'recurs every ${_ordinal(_dayOfMonth!)}',
-            style: const TextStyle(
-              fontFamily: 'Anonymous Pro',
-              fontSize: 13,
-              color: _lightSlate,
-            ),
+            style: const TextStyle(fontFamily: 'Anonymous Pro', fontSize: 13, color: _lightSlate),
           ),
         ],
       ],

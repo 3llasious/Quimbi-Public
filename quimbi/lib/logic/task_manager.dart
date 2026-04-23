@@ -15,23 +15,36 @@ class TaskManager {
   Future<List<TaskModel>> getTasks() async {
     if (kIsWeb) {
       final tasks = loadTestTasks();
-      tasks.sort((a, b) {
-        if (a.dueTime == null && b.dueTime == null) return 0;
-        if (a.dueTime == null) return 1;
-        if (b.dueTime == null) return -1;
-        return a.dueTime!.compareTo(b.dueTime!);
-      });
+      tasks.sort(_compareTask);
       return tasks;
     }
     final raw = await _repository.fetchRawTaskData();
     final tasks = _assembleTaskModels(raw);
-    tasks.sort((a, b) {
-      if (a.dueTime == null && b.dueTime == null) return 0;
-      if (a.dueTime == null) return 1;
-      if (b.dueTime == null) return -1;
-      return a.dueTime!.compareTo(b.dueTime!);
-    });
+    tasks.sort(_compareTask);
     return tasks;
+  }
+
+  // Returns the time-of-day portion as "HH:MM:SS" for comparison, or null if absent/midnight.
+  String? _timeOf(TaskModel t) {
+    if (t.dueTime == null) return null;
+    final part = t.dueTime!.contains(' ') ? t.dueTime!.split(' ').last : t.dueTime!;
+    if (part.startsWith('00:00')) return null;
+    return part;
+  }
+
+  int _compareTask(TaskModel a, TaskModel b) {
+    final ta = _timeOf(a);
+    final tb = _timeOf(b);
+    // group: 0 = time-sensitive with time, 1 = non-sensitive with time, 2 = no time
+    int groupOf(TaskModel t, String? time) {
+      if (time == null) return 2;
+      return t.isTimeSensitive ? 0 : 1;
+    }
+    final ga = groupOf(a, ta);
+    final gb = groupOf(b, tb);
+    if (ga != gb) return ga.compareTo(gb);
+    if (ta == null || tb == null) return 0;
+    return ta.compareTo(tb);
   }
 
   List<TaskModel> _assembleTaskModels(TaskRawData raw) {

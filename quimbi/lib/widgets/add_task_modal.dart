@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../repositories/task_repository.dart';
+import 'day_of_month_dialog.dart';
 
 class _Reminder {
   TimeOfDay time;
-  String type;
-  _Reminder({required this.time, this.type = 'notification'});
+  String type = 'notification';
+  _Reminder({required this.time});
 }
 
 class _LinkEntry {
@@ -45,6 +46,7 @@ class _AddTaskModalState extends State<AddTaskModal> {
 
   // Page 3a
   TimeOfDay? _dueTime;
+  String _dueAlertType = 'notification';
   final List<_Reminder> _reminders = [];
 
   // Page 3b
@@ -171,6 +173,9 @@ class _AddTaskModalState extends State<AddTaskModal> {
     final alerts = alertSource
         .map((r) => {'time': _fmtTimeOnly(r.time), 'type': r.type})
         .toList();
+    if (isSensitive && _dueTime != null) {
+      alerts.insert(0, {'time': _fmtTimeOnly(_dueTime!), 'type': _dueAlertType});
+    }
 
     final links = _links
         .where((l) => l.label.isNotEmpty && l.url.isNotEmpty)
@@ -388,47 +393,52 @@ class _AddTaskModalState extends State<AddTaskModal> {
         _taskName(),
         const SizedBox(height: 16),
         Row(children: [
-          Icon(Icons.repeat, color: _accent, size: 26),
-          const SizedBox(width: 10),
+          // repeat — lights up for weekly or monthly
           AnimatedContainer(
             duration: const Duration(milliseconds: 200),
             width: 36, height: 36,
             decoration: BoxDecoration(
-              color: (_weekdays.isNotEmpty || _useCalendar || _isDaily) ? _accent : const Color(0xFFF0F0F0),
+              color: (_weekdays.isNotEmpty || _useCalendar) ? _accent : const Color(0xFFF0F0F0),
               shape: BoxShape.circle,
             ),
-            child: Center(
-              child: Text(
-                _isDaily ? '∞' : _useCalendar ? (_dayOfMonth?.toString() ?? '?') : '${_weekdays.length}',
-                style: TextStyle(
-                  fontFamily: 'Anonymous Pro',
-                  fontSize: _isDaily ? 16 : 13,
-                  fontWeight: FontWeight.bold,
-                  color: (_weekdays.isNotEmpty || _useCalendar || _isDaily) ? Colors.white : Colors.grey.shade500,
-                ),
+            child: Center(child: Icon(Icons.repeat, size: 18,
+              color: (_weekdays.isNotEmpty || _useCalendar) ? Colors.white : Colors.grey.shade500)),
+          ),
+          const SizedBox(width: 8),
+          // 1 — once (default)
+          GestureDetector(
+            onTap: () => setState(() { _isDaily = false; _weekdays.clear(); _useCalendar = false; _dayOfMonth = null; }),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              width: 36, height: 36,
+              decoration: BoxDecoration(
+                color: (!_isDaily && _weekdays.isEmpty && !_useCalendar) ? _accent : const Color(0xFFF0F0F0),
+                shape: BoxShape.circle,
               ),
+              child: Center(child: Text('1', style: TextStyle(
+                fontFamily: 'Anonymous Pro', fontSize: 15, fontWeight: FontWeight.bold,
+                color: (!_isDaily && _weekdays.isEmpty && !_useCalendar) ? Colors.white : Colors.grey.shade500,
+              ))),
+            ),
+          ),
+          const SizedBox(width: 8),
+          // ∞ — daily
+          GestureDetector(
+            onTap: () => setState(() { _isDaily = true; _weekdays.clear(); _useCalendar = false; _dayOfMonth = null; }),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              width: 36, height: 36,
+              decoration: BoxDecoration(
+                color: _isDaily ? _accent : const Color(0xFFF0F0F0),
+                shape: BoxShape.circle,
+              ),
+              child: Center(child: Text('∞', style: TextStyle(
+                fontFamily: 'Anonymous Pro', fontSize: 18, fontWeight: FontWeight.bold,
+                color: _isDaily ? Colors.white : Colors.grey.shade500,
+              ))),
             ),
           ),
         ]),
-        const SizedBox(height: 14),
-        GestureDetector(
-          onTap: () => setState(() {
-            _isDaily = !_isDaily;
-            if (_isDaily) { _weekdays.clear(); _useCalendar = false; _dayOfMonth = null; }
-          }),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: BoxDecoration(
-              color: _isDaily ? _accent : const Color(0xFFE8E8E8),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Text('every day', style: TextStyle(
-              fontFamily: 'Anonymous Pro', fontSize: 13, fontWeight: FontWeight.bold,
-              color: _isDaily ? Colors.white : Colors.grey.shade500,
-            )),
-          ),
-        ),
         const SizedBox(height: 12),
         Opacity(
           opacity: (_useCalendar || _isDaily) ? 0.3 : 1.0,
@@ -439,18 +449,27 @@ class _AddTaskModalState extends State<AddTaskModal> {
           opacity: _isDaily ? 0.3 : 1.0,
           child: IgnorePointer(
             ignoring: _isDaily,
-            child: GestureDetector(
-              onTap: _toggleCalendar,
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                width: 36, height: 36,
-                decoration: BoxDecoration(
-                  color: _useCalendar ? _accent.withOpacity(0.15) : _accent.withOpacity(0.08),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: _useCalendar ? _accent : Colors.transparent, width: 1.5),
+            child: Row(
+              children: [
+                GestureDetector(
+                  onTap: _toggleCalendar,
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    width: 36, height: 36,
+                    decoration: BoxDecoration(
+                      color: _useCalendar ? _accent.withValues(alpha: 0.15) : _accent.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: _useCalendar ? _accent : Colors.transparent, width: 1.5),
+                    ),
+                    child: Center(child: Icon(Icons.calendar_today_outlined, color: _accent, size: 18)),
+                  ),
                 ),
-                child: Center(child: Icon(Icons.calendar_today_outlined, color: _accent, size: 18)),
-              ),
+                if (_useCalendar && _dayOfMonth != null) ...[
+                  const SizedBox(width: 12),
+                  Text('recurs every ${_ordinal(_dayOfMonth!)}',
+                    style: TextStyle(fontFamily: 'Anonymous Pro', fontSize: 13, color: Colors.grey.shade500)),
+                ],
+              ],
             ),
           ),
         ),
@@ -492,11 +511,21 @@ class _AddTaskModalState extends State<AddTaskModal> {
     } else {
       final day = await showDialog<int>(
         context: context,
-        builder: (_) => _DayOfMonthDialog(accent: _accent),
+        builder: (_) => DayOfMonthDialog(accent: _accent),
       );
       if (day != null) {
         setState(() { _useCalendar = true; _dayOfMonth = day; _weekdays.clear(); });
       }
+    }
+  }
+
+  String _ordinal(int n) {
+    if (n >= 11 && n <= 13) return '${n}th';
+    switch (n % 10) {
+      case 1: return '${n}st';
+      case 2: return '${n}nd';
+      case 3: return '${n}rd';
+      default: return '${n}th';
     }
   }
 
@@ -511,13 +540,24 @@ class _AddTaskModalState extends State<AddTaskModal> {
         const SizedBox(height: 16),
         _sectionLabel('due by', 'deadline time'),
         const SizedBox(height: 8),
-        _timeChip(
-          time: _dueTime,
-          onTap: () => _pickTime(
-            initial: _dueTime ?? _nextHour,
-            onPicked: (t) => setState(() => _dueTime = t),
+        Row(children: [
+          _timeChip(
+            time: _dueTime,
+            onTap: () => _pickTime(
+              initial: _dueTime ?? _nextHour,
+              onPicked: (t) => setState(() => _dueTime = t),
+            ),
           ),
-        ),
+          const Spacer(),
+          AnimatedOpacity(
+            duration: const Duration(milliseconds: 200),
+            opacity: _dueTime != null ? 1.0 : 0.3,
+            child: IgnorePointer(
+              ignoring: _dueTime == null,
+              child: _dueAlertTypeSelector(),
+            ),
+          ),
+        ]),
         const SizedBox(height: 20),
         _sectionLabel('remind me', 'prior to deadline (max 3)'),
         const SizedBox(height: 8),
@@ -538,7 +578,7 @@ class _AddTaskModalState extends State<AddTaskModal> {
         Row(children: [
           const Text('all-day?', style: TextStyle(fontFamily: 'Anonymous Pro', fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF333333))),
           const SizedBox(width: 16),
-          Switch(value: _isAllDay, activeColor: _accent, onChanged: (v) => setState(() => _isAllDay = v)),
+          Switch(value: _isAllDay, activeThumbColor: _accent, onChanged: (v) => setState(() => _isAllDay = v)),
         ]),
         const SizedBox(height: 16),
         AnimatedOpacity(
@@ -684,6 +724,40 @@ class _AddTaskModalState extends State<AddTaskModal> {
     child: Center(child: child),
   );
 
+  Widget _dueAlertTypeSelector() {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      const Text('alert type', style: TextStyle(fontFamily: 'Anonymous Pro', fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF333333))),
+      const SizedBox(height: 3),
+      Row(children: [
+        _alertBtnForType('notification', _dueAlertType, icon: const Icon(Icons.notifications_outlined, color: Colors.white, size: 13),
+            onTap: () => setState(() => _dueAlertType = 'notification')),
+        const SizedBox(width: 4),
+        _alertBtnForType('phone_alarm', _dueAlertType, icon: const Icon(Icons.alarm, color: Colors.white, size: 13),
+            onTap: () => setState(() => _dueAlertType = 'phone_alarm')),
+        const SizedBox(width: 4),
+        _alertBtnForType('imessage', _dueAlertType, svg: 'assets/icons/test_message_alert.svg',
+            onTap: () => setState(() => _dueAlertType = 'imessage')),
+      ]),
+    ]);
+  }
+
+  Widget _alertBtnForType(String type, String current, {Widget? icon, String? svg, required VoidCallback onTap}) {
+    final active = current == type;
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        width: 26, height: 26,
+        decoration: BoxDecoration(color: active ? _accent : const Color(0xFFCCCCCC), shape: BoxShape.circle),
+        child: Center(
+          child: svg != null
+              ? Padding(padding: const EdgeInsets.all(5), child: SvgPicture.asset(svg, fit: BoxFit.contain, colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn)))
+              : icon,
+        ),
+      ),
+    );
+  }
+
   Widget _alertTypeSelector(_Reminder r) {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       const Text('alert type', style: TextStyle(fontFamily: 'Anonymous Pro', fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF333333))),
@@ -708,8 +782,7 @@ class _AddTaskModalState extends State<AddTaskModal> {
         decoration: BoxDecoration(color: active ? _accent : const Color(0xFFCCCCCC), shape: BoxShape.circle),
         child: Center(
           child: svg != null
-              ? Padding(padding: const EdgeInsets.all(6),
-                  child: SvgPicture.asset(svg, colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn)))
+              ? Padding(padding: const EdgeInsets.all(5), child: SvgPicture.asset(svg, fit: BoxFit.contain, colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn)))
               : icon,
         ),
       ),
@@ -968,243 +1041,5 @@ class _TimeRollerSheetState extends State<_TimeRollerSheet> {
         ),
       )),
     );
-  }
-}
-
-// ── Day of Month Dialog ──────────────────────────────────────────────────────
-
-class _DayOfMonthDialog extends StatefulWidget {
-  final Color accent;
-  const _DayOfMonthDialog({required this.accent});
-
-  @override
-  State<_DayOfMonthDialog> createState() => _DayOfMonthDialogState();
-}
-
-class _DayOfMonthDialogState extends State<_DayOfMonthDialog> {
-  int? _selected;
-  late DateTime _viewMonth;
-
-  static const _dayLabels = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
-  static const _monthNames = [
-    'january','february','march','april','may','june',
-    'july','august','september','october','november','december',
-  ];
-
-  @override
-  void initState() {
-    super.initState();
-    final now = DateTime.now();
-    _viewMonth = DateTime(now.year, now.month);
-  }
-
-  int get _daysInMonth => DateTime(_viewMonth.year, _viewMonth.month + 1, 0).day;
-  int get _firstWeekday => DateTime(_viewMonth.year, _viewMonth.month, 1).weekday; // 1=Mon
-
-  String get _monthLabel {
-    final now = DateTime.now();
-    if (_viewMonth.year == now.year && _viewMonth.month == now.month) return 'this month';
-    return _monthNames[_viewMonth.month - 1];
-  }
-
-  void _prevMonth() => setState(() =>
-      _viewMonth = DateTime(_viewMonth.year, _viewMonth.month - 1));
-
-  void _nextMonth() => setState(() =>
-      _viewMonth = DateTime(_viewMonth.year, _viewMonth.month + 1));
-
-  @override
-  Widget build(BuildContext context) {
-    return Dialog(
-      backgroundColor: Colors.transparent,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(24),
-          boxShadow: const [
-            BoxShadow(color: Color(0x18000000), blurRadius: 24, offset: Offset(0, 8)),
-          ],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _buildMonthHeader(),
-            _buildDayHeaders(),
-            const Divider(height: 1, color: Color(0xFFF0F0F0)),
-            _buildCalendarGrid(),
-            const Divider(height: 1, color: Color(0xFFF0F0F0)),
-            _buildFooter(),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildMonthHeader() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 18, 20, 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          GestureDetector(
-            onTap: _prevMonth,
-            child: const Icon(Icons.chevron_left, color: Color(0xFF333333), size: 22),
-          ),
-          Text(
-            _monthLabel,
-            style: const TextStyle(
-              fontFamily: 'Anonymous Pro',
-              fontSize: 15,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF333333),
-            ),
-          ),
-          GestureDetector(
-            onTap: _nextMonth,
-            child: const Icon(Icons.chevron_right, color: Color(0xFF333333), size: 22),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDayHeaders() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: _dayLabels.map((l) => SizedBox(
-          width: 32,
-          child: Center(
-            child: Text(
-              l,
-              style: TextStyle(
-                fontFamily: 'Anonymous Pro',
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-                color: widget.accent,
-              ),
-            ),
-          ),
-        )).toList(),
-      ),
-    );
-  }
-
-  Widget _buildCalendarGrid() {
-    final today = DateTime.now();
-    final isThisMonth = _viewMonth.year == today.year && _viewMonth.month == today.month;
-    final todayDay = isThisMonth ? today.day : null;
-    final leadingBlanks = _firstWeekday - 1;
-    final totalCells = leadingBlanks + _daysInMonth;
-    final rows = (totalCells / 7).ceil();
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      child: Column(
-        children: List.generate(rows, (row) {
-          return Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: List.generate(7, (col) {
-              final cellIndex = row * 7 + col;
-              final day = cellIndex - leadingBlanks + 1;
-
-              if (day < 1 || day > _daysInMonth) {
-                return const SizedBox(width: 32, height: 36);
-              }
-
-              final isSelected = _selected == day;
-              final isToday = todayDay == day;
-
-              return GestureDetector(
-                onTap: () => setState(() => _selected = day),
-                child: Container(
-                  width: 32,
-                  height: 36,
-                  margin: const EdgeInsets.symmetric(vertical: 2),
-                  decoration: isSelected
-                      ? BoxDecoration(
-                          color: widget.accent,
-                          borderRadius: BorderRadius.circular(10),
-                        )
-                      : isToday
-                          ? BoxDecoration(
-                              border: Border.all(color: widget.accent, width: 1.5),
-                              borderRadius: BorderRadius.circular(10),
-                            )
-                          : null,
-                  child: Center(
-                    child: Text(
-                      '$day',
-                      style: TextStyle(
-                        fontFamily: 'Anonymous Pro',
-                        fontSize: 13,
-                        fontWeight: FontWeight.bold,
-                        color: isSelected
-                            ? Colors.white
-                            : isToday
-                                ? widget.accent
-                                : const Color(0xFF333333),
-                      ),
-                    ),
-                  ),
-                ),
-              );
-            }),
-          );
-        }),
-      ),
-    );
-  }
-
-  Widget _buildFooter() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-      child: Row(
-        children: [
-          if (_selected != null)
-            Text(
-              'recurs every ${_ordinal(_selected!)}',
-              style: TextStyle(
-                fontFamily: 'Anonymous Pro',
-                fontSize: 12,
-                color: Colors.grey.shade500,
-              ),
-            ),
-          const Spacer(),
-          GestureDetector(
-            onTap: _selected != null ? () => Navigator.of(context).pop(_selected) : null,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 150),
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-              decoration: BoxDecoration(
-                color: _selected != null ? widget.accent : const Color(0xFFEEEEEE),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Text(
-                'set',
-                style: TextStyle(
-                  fontFamily: 'Anonymous Pro',
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  color: _selected != null ? Colors.white : Colors.grey.shade400,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  String _ordinal(int n) {
-    if (n >= 11 && n <= 13) return '${n}th';
-    switch (n % 10) {
-      case 1: return '${n}st';
-      case 2: return '${n}nd';
-      case 3: return '${n}rd';
-      default: return '${n}th';
-    }
   }
 }

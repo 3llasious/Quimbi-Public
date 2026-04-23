@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../models/task_model.dart';
 import '../models/subtask_model.dart';
 import 'edit_task_modal.dart';
+import 'copy_task_modal.dart';
 
 class AppColours {
   static const orange = Color(0xFFF55420);
@@ -24,6 +25,7 @@ class TaskCard extends StatefulWidget {
   final VoidCallback onComplete;
   final VoidCallback onDelete;
   final VoidCallback? onUndo;
+  final VoidCallback? onRefresh;
   final bool isCompleted;
 
   const TaskCard({
@@ -33,6 +35,7 @@ class TaskCard extends StatefulWidget {
     required this.onComplete,
     required this.onDelete,
     this.onUndo,
+    this.onRefresh,
     this.isCompleted = false,
   });
 
@@ -156,7 +159,8 @@ class _TaskCardState extends State<TaskCard>
     context: context,
     builder: (_) => EditTaskModal(
       task: widget.task,
-      onSaved: () {}, // wire up to db later
+      selectedDate: widget.selectedDate,
+      onSaved: () { widget.onRefresh?.call(); },
     ),
   );
 }
@@ -181,6 +185,7 @@ class _TaskCardState extends State<TaskCard>
   List<String> _parseTimeParts(String rawTime) {
     if (rawTime.isEmpty) return ['00', '00'];
     final timePart = rawTime.contains(' ') ? rawTime.split(' ').last : rawTime;
+    if (!timePart.contains(':')) return ['00', '00'];
     final parts = timePart.split(':');
     if (parts.isEmpty || parts[0].isEmpty) return ['00', '00'];
     return [parts[0], parts.length > 1 ? parts[1] : '00'];
@@ -339,10 +344,10 @@ class _TaskCardState extends State<TaskCard>
             overflow: TextOverflow.ellipsis,
           ),
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: 1),
         if (widget.task.location != null)
           _buildMetaRow(Icons.location_on_outlined, widget.task.location!.label),
-        if (widget.task.location != null) const SizedBox(height: 4),
+        if (widget.task.location != null) const SizedBox(height: 2),
         if (widget.task.people.isNotEmpty)
           _buildMetaRow(Icons.person_outline, widget.task.people.map((p) => p.name).join(', ')),
         if (widget.task.people.isNotEmpty) const SizedBox(height: 4),
@@ -422,7 +427,9 @@ class _TaskCardState extends State<TaskCard>
     return Row(
       children: [
         if (widget.task.recurrence != null) ...[
-          _buildSvgActionButton('assets/icons/repeate-one.svg'),
+          widget.task.recurrence!.recurrenceType == 'daily'
+              ? _buildDailyPill()
+              : _buildSvgActionButton('assets/icons/repeate-one.svg'),
           const SizedBox(width: 5),
         ],
         ..._buildAlertButtons(),
@@ -449,9 +456,10 @@ class _TaskCardState extends State<TaskCard>
               ],
             ),
             child: Padding(
-              padding: const EdgeInsets.all(6),
+              padding: const EdgeInsets.all(5),
               child: SvgPicture.asset(
                 'assets/icons/test_message_alert.svg',
+                fit: BoxFit.contain,
                 colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
               ),
             ),
@@ -520,6 +528,23 @@ class _TaskCardState extends State<TaskCard>
         ],
       ),
       child: Icon(icon, size: 16, color: iconColour),
+    );
+  }
+
+  Widget _buildDailyPill() {
+    return Container(
+      width: 28,
+      height: 28,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(9.5),
+        boxShadow: const [
+          BoxShadow(color: Color(0x26000000), blurRadius: 4, offset: Offset(0, 2)),
+        ],
+      ),
+      child: Center(
+        child: Text('∞', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: _accentColour())),
+      ),
     );
   }
 
@@ -671,12 +696,25 @@ Widget _buildIconColumn() {
   return Column(
     mainAxisAlignment: MainAxisAlignment.spaceBetween,
     children: [
-      SvgPicture.asset('assets/icons/copy.svg', width: 22, height: 22),
+      GestureDetector(
+        onTap: () => _openCopyModal(),
+        child: SvgPicture.asset('assets/icons/copy.svg', width: 22, height: 22),
+      ),
       GestureDetector(
         onTap: () => _openEditModal(),
         child: SvgPicture.asset('assets/icons/Button OnClick- edit.svg', width: 17, height: 17),
       ),
     ],
+  );
+}
+
+void _openCopyModal() {
+  showDialog(
+    context: context,
+    builder: (_) => CopyTaskModal(
+      task: widget.task,
+      onSaved: () { widget.onRefresh?.call(); },
+    ),
   );
 }
 }

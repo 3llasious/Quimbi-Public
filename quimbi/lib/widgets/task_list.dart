@@ -51,15 +51,16 @@ class _TaskListState extends State<TaskList> {
     final r = task.recurrence;
 
     if (r == null) {
-      if (task.dueTime == null) return true;
-      final due = DateTime.parse(task.dueTime!);
+      final anchor = task.dueTime ?? task.createdAt;
+      final due = DateTime.tryParse(anchor);
+      if (due == null) return false;
       return due.year == date.year && due.month == date.month && due.day == date.day;
     }
 
     // Always show a recurring task on the specific date it was added for
     if (task.dueTime != null) {
-      final due = DateTime.parse(task.dueTime!);
-      if (due.year == date.year && due.month == date.month && due.day == date.day) {
+      final due = DateTime.tryParse(task.dueTime!);
+      if (due != null && due.year == date.year && due.month == date.month && due.day == date.day) {
         return true;
       }
     }
@@ -138,7 +139,7 @@ class _TaskListState extends State<TaskList> {
               style: const TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
-                color: Color(0xFF4D5B71),
+                color: Color(0xFF888888),
               ),
             ),
           );
@@ -156,6 +157,7 @@ class _TaskListState extends State<TaskList> {
             onComplete: () => _completeTask(task.id),
             onDelete: () => _deleteTask(task.id),
             onUndo: isCompleted ? () => _uncompleteTask(task.id) : null,
+            onRefresh: _loadTasks,
           ),
         );
       },
