@@ -92,16 +92,23 @@ class _TaskListScreenState extends State<TaskListScreen> {
                     ),
                   ),
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
-                    child: Text(
-                      _monthNames[_selectedDate.month - 1],
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF4D5B71),
-                      ),
-                    ),
-                  ),
+  padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+  child: Container(
+    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+    decoration: BoxDecoration(
+      color: const Color(0xFFEDE5D8),
+      borderRadius: BorderRadius.circular(20),
+    ),
+    child: Text(
+      _monthNames[_selectedDate.month - 1],
+      style: const TextStyle(
+        fontSize: 14,
+        fontWeight: FontWeight.normal,
+        color: Color(0xFF888888),
+      ),
+    ),
+  ),
+),
                   DateSelectorHeader(
                     onDateSelected: (date) =>
                         setState(() => _selectedDate = date),
