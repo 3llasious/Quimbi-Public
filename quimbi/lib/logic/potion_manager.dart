@@ -14,14 +14,16 @@ class PotionManager extends ChangeNotifier {
 
   // Called when all of today's tasks are resolved.
   // Awards 1 potion per newly-completed task (guards against double-awarding).
-  Future<void> checkAndAward(List<int> completedTaskIds, String date) async {
-    if (completedTaskIds.isEmpty) return;
+  // Returns the number of potions actually awarded (0 if already awarded).
+  Future<int> checkAndAward(List<int> completedTaskIds, String date) async {
+    if (completedTaskIds.isEmpty) return 0;
     final alreadyAwarded = await _repo.fetchAwardedTaskIds(date);
     final newIds = completedTaskIds.where((id) => !alreadyAwarded.contains(id)).toList();
-    if (newIds.isEmpty) return;
+    if (newIds.isEmpty) return 0;
     await _repo.adjustPotions(newIds.length, awardTaskIds: newIds, awardDate: date);
     _count += newIds.length;
     notifyListeners();
+    return newIds.length;
   }
 
   // -2 penalty for undoing a completion, clamped at 0 in the DB.

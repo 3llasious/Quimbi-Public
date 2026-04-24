@@ -43,6 +43,7 @@ dependencies:
   path_provider: ^2.1.0
   glassmorphism: ^3.0.0
   gif: ^2.1.0
+  confetti: ^0.7.0
 
 dev_dependencies:
   flutter_test:

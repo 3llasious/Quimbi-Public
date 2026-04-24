@@ -1,3 +1,5 @@
+import 'dart:math';
+import 'package:confetti/confetti.dart';
 import 'package:flutter/material.dart';
 import '../logic/pet_state_machine.dart';
 import '../logic/potion_manager.dart';
@@ -30,6 +32,10 @@ class _TaskListScreenState extends State<TaskListScreen> {
   bool _fabOpen = false;
   final _petMachine = PetStateMachine();
   final _potionManager = PotionManager();
+  late final ConfettiController _confettiLeft;
+  late final ConfettiController _confettiRight;
+  bool _showToast = false;
+  int _toastPotions = 0;
 
   bool get _isPastDate {
     final now = DateTime.now();
@@ -48,6 +54,8 @@ class _TaskListScreenState extends State<TaskListScreen> {
   @override
   void initState() {
     super.initState();
+    _confettiLeft = ConfettiController(duration: const Duration(seconds: 2));
+    _confettiRight = ConfettiController(duration: const Duration(seconds: 2));
     _petMachine.onTaskMissed = (taskId, missedDate) async {
       await TaskRepository().missTask(taskId, missedDate);
       if (mounted) setState(() => _refreshKey++);
@@ -58,8 +66,25 @@ class _TaskListScreenState extends State<TaskListScreen> {
     _loadUserName();
   }
 
+  void _fireConfetti() {
+    _confettiLeft.play();
+    _confettiRight.play();
+  }
+
+  void _showCompletionToast(int potionsEarned) {
+    setState(() {
+      _toastPotions = potionsEarned;
+      _showToast = true;
+    });
+    Future.delayed(const Duration(seconds: 4), () {
+      if (mounted) setState(() => _showToast = false);
+    });
+  }
+
   @override
   void dispose() {
+    _confettiLeft.dispose();
+    _confettiRight.dispose();
     _petMachine.dispose();
     _potionManager.dispose();
     super.dispose();
@@ -174,7 +199,12 @@ class _TaskListScreenState extends State<TaskListScreen> {
                       refreshKey: _refreshKey,
                       onTasksLoaded: _petMachine.updateTasks,
                       onTaskCompleted: _petMachine.onTaskCompleted,
-                      onAllResolvedToday: _potionManager.checkAndAward,
+                      onAllResolvedToday: (ids, date) async {
+                        final earned = await _potionManager.checkAndAward(ids, date);
+                        if (!mounted || earned == 0) return;
+                        _fireConfetti();
+                        _showCompletionToast(earned);
+                      },
                       onTaskUncompleted: _potionManager.penaliseUndo,
                       header: Padding(
                         padding: const EdgeInsets.fromLTRB(0, 8, 0, 4),
@@ -213,6 +243,79 @@ class _TaskListScreenState extends State<TaskListScreen> {
                 isPastDate: _isPastDate,
                 onAddTap: _openAddModal,
               ),
+            ),
+          ),
+          if (_showToast)
+            Center(
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 40),
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: const [
+                    BoxShadow(color: Color(0x22000000), blurRadius: 16, offset: Offset(0, 4)),
+                  ],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (_toastPotions > 0) ...[
+                      Image.asset('assets/Images/streak-potion.png', width: 26, height: 26),
+                      const SizedBox(width: 10),
+                    ],
+                    Flexible(
+                      child: Text(
+                        _toastPotions > 0
+                            ? 'All done! +$_toastPotions ${_toastPotions == 1 ? 'potion' : 'potions'}'
+                            : 'All done! Tasks cleared.',
+                        style: const TextStyle(fontSize: 15, color: Color(0xFF4D5B71)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          Align(
+            alignment: Alignment.topLeft,
+            child: ConfettiWidget(
+              confettiController: _confettiLeft,
+              blastDirection: -pi / 6,
+              emissionFrequency: 0.12,
+              numberOfParticles: 20,
+              gravity: 0.4,
+              minimumSize: const Size(4, 4),
+              maximumSize: const Size(10, 10),
+              shouldLoop: false,
+              colors: const [
+                Color(0xFFF55420),
+                Color(0xFFFFC4AC),
+                Color(0xFF5CC96E),
+                Color(0xFFFFD966),
+                Color(0xFFB8AD96),
+                Color(0xFFE3D9C1),
+              ],
+            ),
+          ),
+          Align(
+            alignment: Alignment.topRight,
+            child: ConfettiWidget(
+              confettiController: _confettiRight,
+              blastDirection: pi + pi / 6,
+              emissionFrequency: 0.12,
+              numberOfParticles: 20,
+              gravity: 0.4,
+              minimumSize: const Size(4, 4),
+              maximumSize: const Size(10, 10),
+              shouldLoop: false,
+              colors: const [
+                Color(0xFFF55420),
+                Color(0xFFFFC4AC),
+                Color(0xFF5CC96E),
+                Color(0xFFFFD966),
+                Color(0xFFB8AD96),
+                Color(0xFFE3D9C1),
+              ],
             ),
           ),
         ],
