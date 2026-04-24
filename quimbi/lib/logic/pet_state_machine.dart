@@ -142,7 +142,7 @@ class PetStateMachine extends ChangeNotifier {
     return _rng.nextDouble() < 0.5 ? magnitude : -magnitude;
   }
 
-  // Returns true if any task OTHER than excludeTaskId has a triggered alert and is still active
+  // Returns true if any task OTHER than excludeTaskId has a triggered alert and is still active today
   bool _hasActiveTriggeredAlerts({int? excludeTaskId}) {
     final today = _todayDateString();
     return _triggeredAlerts.any((key) {
@@ -150,11 +150,48 @@ class PetStateMachine extends ChangeNotifier {
       if (id == null || id == excludeTaskId) return false;
       try {
         final task = _tasks.firstWhere((t) => t.id == id);
-        return !task.isCompletedOn(today) && !task.isMissedOn(today);
+        return _occursToday(task) &&
+            !task.isCompletedOn(today) &&
+            !task.isMissedOn(today);
       } catch (_) {
         return false;
       }
     });
+  }
+
+  bool _occursToday(TaskModel task) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final r = task.recurrence;
+
+    if (r == null) {
+      final anchor = task.dueTime ?? task.createdAt;
+      final due = DateTime.tryParse(anchor);
+      if (due == null) return false;
+      return due.year == now.year && due.month == now.month && due.day == now.day;
+    }
+
+    if (r.startsOn != null) {
+      final start = DateTime.parse(r.startsOn!);
+      if (today.isBefore(DateTime(start.year, start.month, start.day))) return false;
+    }
+    if (r.endsOn != null) {
+      final end = DateTime.parse(r.endsOn!);
+      if (today.isAfter(DateTime(end.year, end.month, end.day))) return false;
+    }
+
+    switch (r.recurrenceType) {
+      case 'daily':
+        return true;
+      case 'weekly':
+        if (r.weekdays == null) return false;
+        final days = r.weekdays!.split(',').map(int.parse).toList();
+        return days.contains(now.weekday);
+      case 'monthly':
+        return r.dayOfMonth != null && now.day == r.dayOfMonth;
+      default:
+        return false;
+    }
   }
 
   void _checkReminders() {
@@ -163,6 +200,7 @@ class PetStateMachine extends ChangeNotifier {
 
     for (final task in _tasks) {
       if (!task.isTimeSensitive) continue;
+      if (!_occursToday(task)) continue;
       if (task.isCompletedOn(today) || task.isMissedOn(today)) continue;
 
       for (final alert in task.alerts) {
@@ -182,6 +220,12 @@ class PetStateMachine extends ChangeNotifier {
           triggerReminder();
         }
       }
+    }
+
+    // Sync: clear the reminder if no triggered alerts are still pending
+    if (_reminderActive && !_hasActiveTriggeredAlerts()) {
+      _reminderActive = false;
+      notifyListeners();
     }
   }
 

@@ -75,7 +75,7 @@ class _PetWidgetState extends State<PetWidget> with SingleTickerProviderStateMix
       // Low energy
       'sulky':    'assets/gifs/front-sleep.gif',
       'hangry':   'assets/gifs/ramen.gif',
-      'fussy':    'assets/gifs/ramen.gif',
+      'fussy':    'assets/gifs/hungry.gif',
       'cozy':     'assets/gifs/side sleep.gif',
       // Medium energy
       'grumpy':   'assets/gifs/front-sleep.gif',
