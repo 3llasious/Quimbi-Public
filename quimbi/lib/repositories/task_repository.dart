@@ -11,6 +11,7 @@ typedef TaskRawData = ({
   List<Map<String, dynamic>> recurrencePatterns,
   List<Map<String, dynamic>> people,
   List<Map<String, dynamic>> completions,
+  List<Map<String, dynamic>> missed,
 });
 
 class TaskRepository {
@@ -39,6 +40,8 @@ class TaskRepository {
     debugPrint('[REPO] people: ${people.length} rows');
     final completions = await db.query('task_completions');
     debugPrint('[REPO] completions: ${completions.length} rows');
+    final missed = await db.query('task_missed');
+    debugPrint('[REPO] missed: ${missed.length} rows');
     return (
       tasks: tasks,
       subtasks: subtasks,
@@ -48,6 +51,7 @@ class TaskRepository {
       recurrencePatterns: recurrencePatterns,
       people: people,
       completions: completions,
+      missed: missed,
     );
   }
 
@@ -148,6 +152,24 @@ class TaskRepository {
     );
   }
 
+  Future<void> missTask(int taskId, String missedDate) async {
+    final db = await DatabaseHelper.instance.database;
+    await db.insert(
+      'task_missed',
+      {'task_id': taskId, 'missed_date': missedDate},
+      conflictAlgorithm: ConflictAlgorithm.ignore,
+    );
+  }
+
+  Future<void> unmissTask(int taskId, String missedDate) async {
+    final db = await DatabaseHelper.instance.database;
+    await db.delete(
+      'task_missed',
+      where: 'task_id = ? AND missed_date = ?',
+      whereArgs: [taskId, missedDate],
+    );
+  }
+
   Future<void> uncompleteTask(int taskId, String doneDate) async {
     final db = await DatabaseHelper.instance.database;
     await db.delete(
@@ -229,6 +251,45 @@ class TaskRepository {
   Future<void> deleteTask(int taskId) async {
     final db = await DatabaseHelper.instance.database;
     await db.delete('tasks', where: 'id = ?', whereArgs: [taskId]);
+  }
+
+  Future<int> fetchPotionCount() async {
+    final db = await DatabaseHelper.instance.database;
+    final result = await db.query('loggedInUser', columns: ['potion_count'], limit: 1);
+    if (result.isEmpty) return 0;
+    return (result.first['potion_count'] as int?) ?? 0;
+  }
+
+  Future<List<int>> fetchAwardedTaskIds(String date) async {
+    final db = await DatabaseHelper.instance.database;
+    final rows = await db.query(
+      'potion_awards',
+      columns: ['task_id'],
+      where: 'award_date = ?',
+      whereArgs: [date],
+    );
+    return rows.map((r) => r['task_id'] as int).toList();
+  }
+
+  // Inserts award records and adjusts potion count atomically.
+  // delta can be negative (penalty) — count is clamped at 0.
+  Future<void> adjustPotions(int delta, {List<int>? awardTaskIds, String? awardDate}) async {
+    final db = await DatabaseHelper.instance.database;
+    await db.transaction((txn) async {
+      if (awardTaskIds != null && awardDate != null) {
+        for (final id in awardTaskIds) {
+          await txn.insert(
+            'potion_awards',
+            {'task_id': id, 'award_date': awardDate},
+            conflictAlgorithm: ConflictAlgorithm.ignore,
+          );
+        }
+      }
+      await txn.rawUpdate(
+        'UPDATE loggedInUser SET potion_count = MAX(0, potion_count + ?)',
+        [delta],
+      );
+    });
   }
 
   Future<String?> fetchUserName() async {

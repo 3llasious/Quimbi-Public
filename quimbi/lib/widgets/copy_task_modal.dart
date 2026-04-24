@@ -3,6 +3,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../models/task_model.dart';
 import '../repositories/task_repository.dart';
 import 'day_of_month_dialog.dart';
+import 'time_roller_sheet.dart';
 
 class CopyTaskModal extends StatefulWidget {
   final TaskModel task;
@@ -63,14 +64,7 @@ class _CopyTaskModalState extends State<CopyTaskModal> {
     _personController = TextEditingController(text: widget.task.people.map((p) => p.name).join(', '));
     _isTimeSensitive = widget.task.isTimeSensitive;
 
-    for (final a in widget.task.alerts) {
-      final parts = a.alertTime.split(':');
-      _alerts.add(_Alert(
-        time: TimeOfDay(hour: int.tryParse(parts[0]) ?? 0, minute: int.tryParse(parts[1]) ?? 0),
-        type: a.alertType,
-      ));
-    }
-
+    // pre-fill due time first so we can exclude it from reminders below
     if (widget.task.dueTime != null) {
       final raw = widget.task.dueTime!;
       final timePart = raw.contains(' ') ? raw.split(' ').last : raw;
@@ -81,6 +75,22 @@ class _CopyTaskModalState extends State<CopyTaskModal> {
         if (hour != null && minute != null) {
           _dueTime = TimeOfDay(hour: hour, minute: minute);
         }
+      }
+    }
+
+    // pre-fill alerts, skipping the due-time alert that _save() re-inserts at position 0
+    bool dueAlertFound = false;
+    for (final a in widget.task.alerts) {
+      final parts = a.alertTime.split(':');
+      final hour = int.tryParse(parts[0]) ?? 0;
+      final minute = int.tryParse(parts.length > 1 ? parts[1] : '0') ?? 0;
+      final time = TimeOfDay(hour: hour, minute: minute);
+      if (_isTimeSensitive && _dueTime != null && !dueAlertFound &&
+          time.hour == _dueTime!.hour && time.minute == _dueTime!.minute) {
+        _dueAlertType = a.alertType;
+        dueAlertFound = true;
+      } else {
+        _alerts.add(_Alert(time: time, type: a.alertType));
       }
     }
 
@@ -156,10 +166,7 @@ class _CopyTaskModalState extends State<CopyTaskModal> {
   Future<void> _pickTime({
     required TimeOfDay initial,
     required ValueChanged<TimeOfDay> onPicked,
-  }) async {
-    final picked = await showTimePicker(context: context, initialTime: initial);
-    if (picked != null) onPicked(picked);
-  }
+  }) => pickTime(context: context, initial: initial, accent: _accent, onPicked: onPicked);
 
   Future<void> _save() async {
     String? recurrenceType;
@@ -395,14 +402,15 @@ class _CopyTaskModalState extends State<CopyTaskModal> {
             ]),
           );
         }),
-        GestureDetector(
-          onTap: () => setState(() => _alerts.add(_Alert(time: nextHour))),
-          child: Container(
-            width: 20, height: 20,
-            decoration: const BoxDecoration(color: Color(0xFFB0B8C8), shape: BoxShape.circle),
-            child: const Icon(Icons.add, color: Colors.white, size: 12),
+        if (_alerts.length < 3)
+          GestureDetector(
+            onTap: () => setState(() => _alerts.add(_Alert(time: nextHour))),
+            child: Container(
+              width: 20, height: 20,
+              decoration: const BoxDecoration(color: Color(0xFFB0B8C8), shape: BoxShape.circle),
+              child: const Icon(Icons.add, color: Colors.white, size: 12),
+            ),
           ),
-        ),
       ],
     );
   }

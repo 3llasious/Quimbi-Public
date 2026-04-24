@@ -38,13 +38,15 @@ class DatabaseHelper {
 
     final db = await openDatabase(
       fullPath,
-      version: 2,
+      version: 4,
       onConfigure: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
       },
       onCreate: _createTables,
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 2) await _createTaskCompletionsTable(db);
+        if (oldVersion < 3) await _createTaskMissedTable(db);
+        if (oldVersion < 4) await _addPotionSupport(db);
       },
     );
     debugPrint('[DB] database opened successfully');
@@ -165,6 +167,8 @@ CREATE TABLE alerts (
     ''');
 
     await _createTaskCompletionsTable(db);
+    await _createTaskMissedTable(db);
+    await _addPotionSupport(db);
 
     debugPrint('[DB] all tables created, seeding data...');
     await _seedData(db);
@@ -181,6 +185,33 @@ CREATE TABLE alerts (
       )
     ''');
     debugPrint('[DB] task_completions table created');
+  }
+
+  Future<void> _addPotionSupport(Database db) async {
+    await db.execute(
+      'ALTER TABLE loggedInUser ADD COLUMN potion_count INTEGER DEFAULT 0',
+    );
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS potion_awards (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        task_id     INTEGER NOT NULL,
+        award_date  TEXT NOT NULL,
+        UNIQUE(task_id, award_date)
+      )
+    ''');
+    debugPrint('[DB] potion support added');
+  }
+
+  Future<void> _createTaskMissedTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS task_missed (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        task_id     INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+        missed_date TEXT NOT NULL,
+        UNIQUE(task_id, missed_date)
+      )
+    ''');
+    debugPrint('[DB] task_missed table created');
   }
 
   Future<void> _seedData(Database db) async {

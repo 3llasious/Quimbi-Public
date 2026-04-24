@@ -84,6 +84,10 @@ class TaskManager {
             .where((c) => c['task_id'] == taskId)
             .map((c) => c['done_date'] as String)
             .toList(),
+        missedDates: raw.missed
+            .where((m) => m['task_id'] == taskId)
+            .map((m) => m['missed_date'] as String)
+            .toList(),
       );
     }).toList();
   }
@@ -99,6 +103,9 @@ class TaskManager {
 
   Future<void> uncompleteTask(int taskId, String doneDate) =>
       _repository.uncompleteTask(taskId, doneDate);
+
+  Future<void> unmissTask(int taskId, String date) =>
+      _repository.unmissTask(taskId, date);
 
   Future<void> deleteTask(int taskId) => _repository.deleteTask(taskId);
 }

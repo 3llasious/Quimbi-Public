@@ -3,7 +3,13 @@ import 'package:flutter/material.dart';
 class DayOfMonthDialog extends StatefulWidget {
   final Color accent;
   final bool returnFullDate;
-  const DayOfMonthDialog({super.key, required this.accent, this.returnFullDate = false});
+  final bool showRecurrenceLabel;
+  const DayOfMonthDialog({
+    super.key,
+    required this.accent,
+    this.returnFullDate = false,
+    this.showRecurrenceLabel = true,
+  });
 
   @override
   State<DayOfMonthDialog> createState() => _DayOfMonthDialogState();
@@ -191,7 +197,7 @@ class _DayOfMonthDialogState extends State<DayOfMonthDialog> {
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
       child: Row(
         children: [
-          if (_selected != null)
+          if (_selected != null && widget.showRecurrenceLabel)
             Text(
               'recurs every ${_ordinal(_selected!)}',
               style: TextStyle(

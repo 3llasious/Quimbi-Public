@@ -27,6 +27,7 @@ class TaskCard extends StatefulWidget {
   final VoidCallback? onUndo;
   final VoidCallback? onRefresh;
   final bool isCompleted;
+  final bool isMissed;
 
   const TaskCard({
     super.key,
@@ -37,6 +38,7 @@ class TaskCard extends StatefulWidget {
     this.onUndo,
     this.onRefresh,
     this.isCompleted = false,
+    this.isMissed = false,
   });
 
   @override
@@ -70,7 +72,7 @@ class _TaskCardState extends State<TaskCard>
   void initState() {
     super.initState();
     _setupAnimation();
-    if (widget.task.isTimeSensitive && _isToday && !widget.isCompleted) _startCountdown();
+    if (widget.task.isTimeSensitive && _isToday && !widget.isCompleted && !widget.isMissed) _startCountdown();
   }
 
   @override
@@ -78,12 +80,15 @@ class _TaskCardState extends State<TaskCard>
     super.didUpdateWidget(oldWidget);
     final o = oldWidget.selectedDate;
     final n = widget.selectedDate;
-    if (o.year != n.year || o.month != n.month || o.day != n.day) {
+    final dateChanged = o.year != n.year || o.month != n.month || o.day != n.day;
+    final dueTimeChanged = oldWidget.task.dueTime != widget.task.dueTime;
+
+    if (dateChanged || dueTimeChanged) {
       _countdownTimer?.cancel();
       _countdownTimer = null;
       _secondsLeft = 0;
       _isCountdownVisible = false;
-      if (widget.task.isTimeSensitive && _isToday && !widget.isCompleted) _startCountdown();
+      if (widget.task.isTimeSensitive && _isToday && !widget.isCompleted && !widget.isMissed) _startCountdown();
     }
   }
 
@@ -211,8 +216,8 @@ class _TaskCardState extends State<TaskCard>
 
   @override
   Widget build(BuildContext context) {
-    final canComplete = !widget.isCompleted && !_isFuture;
-    final canUndo = widget.isCompleted;
+    final canComplete = widget.isMissed || (!widget.isCompleted && !_isFuture);
+    final canUndo = widget.isCompleted && !widget.isMissed;
 
     return Container(
       decoration: const BoxDecoration(
@@ -252,7 +257,7 @@ class _TaskCardState extends State<TaskCard>
             icon: Icons.delete_outline,
             alignment: Alignment.centerRight,
           ),
-          child: widget.isCompleted
+          child: (widget.isCompleted || widget.isMissed)
               ? Opacity(opacity: 0.5, child: _buildCard())
               : _buildCard(),
         ),
@@ -440,7 +445,15 @@ class _TaskCardState extends State<TaskCard>
   List<Widget> _buildAlertButtons() {
     final alertButtons = <Widget>[];
 
-    for (final alert in widget.task.alerts) {
+    final sortedAlerts = [...widget.task.alerts]..sort((a, b) {
+        final ap = _parseTimeParts(a.alertTime);
+        final bp = _parseTimeParts(b.alertTime);
+        final aMinutes = int.parse(ap[0]) * 60 + int.parse(ap[1]);
+        final bMinutes = int.parse(bp[0]) * 60 + int.parse(bp[1]);
+        return aMinutes.compareTo(bMinutes);
+      });
+
+    for (final alert in sortedAlerts) {
       final hasAlertPassed = _hasAlertTimePassed(alert.alertTime);
 
       if (alert.alertType == 'imessage') {

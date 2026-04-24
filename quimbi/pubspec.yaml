@@ -42,6 +42,7 @@ dependencies:
   path: ^1.9.0
   path_provider: ^2.1.0
   glassmorphism: ^3.0.0
+  gif: ^2.1.0
 
 dev_dependencies:
   flutter_test:
@@ -68,6 +69,8 @@ flutter:
   assets:
     - assets/icons/
     - assets/fonts/
+    - assets/gifs/
+    - assets/Images/
 
   fonts:
     - family: CanelaTrialMedium

@@ -120,6 +120,7 @@ List<TaskModel> loadTestTasks() {
       links: links,
       location: location,
       people: people,
+      missedDates: const [],
     );
   });
 }
