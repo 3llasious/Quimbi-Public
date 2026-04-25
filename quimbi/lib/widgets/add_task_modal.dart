@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../repositories/task_repository.dart';
+import '../utils/date_time_utils.dart';
 import 'day_of_month_dialog.dart';
 import 'time_roller_sheet.dart';
 
@@ -69,18 +70,18 @@ class _AddTaskModalState extends State<AddTaskModal> {
   Color get _accent => _isSensitive == true ? _orange : _purple;
 
   TimeOfDay get _nextHour {
-    final h = DateTime.now().hour + 1;
-    return TimeOfDay(hour: h.clamp(0, 23), minute: 0);
+    final nextHour = DateTime.now().hour + 1;
+    return TimeOfDay(hour: nextHour.clamp(0, 23), minute: 0);
   }
 
   String get _headerTitle {
-    final d = widget.selectedDate;
+    final selectedDay = widget.selectedDate;
     final now = DateTime.now();
-    if (d.year == now.year && d.month == now.month && d.day == now.day) {
+    if (selectedDay.year == now.year && selectedDay.month == now.month && selectedDay.day == now.day) {
       return 'add a task for today';
     }
     const months = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
-    return 'add a task for ${d.day} ${months[d.month - 1]}';
+    return 'add a task for ${selectedDay.day} ${months[selectedDay.month - 1]}';
   }
 
   bool get _canAdvance =>
@@ -120,41 +121,21 @@ class _AddTaskModalState extends State<AddTaskModal> {
     }
   }
 
-  String _fmtDateTime(DateTime d, TimeOfDay t) =>
-      '${d.year.toString().padLeft(4,'0')}-'
-      '${d.month.toString().padLeft(2,'0')}-'
-      '${d.day.toString().padLeft(2,'0')} '
-      '${t.hour.toString().padLeft(2,'0')}:'
-      '${t.minute.toString().padLeft(2,'0')}:00';
-
-  String _fmtDateOnly(DateTime d) =>
-      '${d.year.toString().padLeft(4,'0')}-'
-      '${d.month.toString().padLeft(2,'0')}-'
-      '${d.day.toString().padLeft(2,'0')} 00:00:00';
-
-  String _fmtDateOnlyShort(DateTime d) =>
-      '${d.year.toString().padLeft(4,'0')}-'
-      '${d.month.toString().padLeft(2,'0')}-'
-      '${d.day.toString().padLeft(2,'0')}';
-
-  String _fmtTimeOnly(TimeOfDay t) =>
-      '${t.hour.toString().padLeft(2,'0')}:'
-      '${t.minute.toString().padLeft(2,'0')}:00';
 
   Future<void> _save() async {
     final title = _titleController.text.trim();
     if (title.isEmpty) return;
 
     final isSensitive = _isSensitive ?? false;
-    final d = widget.selectedDate;
+    final selectedDay = widget.selectedDate;
 
     String? dueTimeStr;
     if (isSensitive && _dueTime != null) {
-      dueTimeStr = _fmtDateTime(d, _dueTime!);
+      dueTimeStr = formatDateTime(selectedDay, _dueTime!);
     } else if (!isSensitive && !_isAllDay && _suggestions.isNotEmpty) {
-      dueTimeStr = _fmtDateTime(d, _suggestions.first.time);
+      dueTimeStr = formatDateTime(selectedDay, _suggestions.first.time);
     } else {
-      dueTimeStr = _fmtDateOnly(d);
+      dueTimeStr = '${formatDate(selectedDay)} 00:00:00';
     }
 
     String? recurrenceType;
@@ -172,10 +153,10 @@ class _AddTaskModalState extends State<AddTaskModal> {
 
     final alertSource = isSensitive ? _reminders : (_isAllDay ? <_Reminder>[] : _suggestions);
     final alerts = alertSource
-        .map((r) => {'time': _fmtTimeOnly(r.time), 'type': r.type})
+        .map((reminder) => {'time': '${formatTimeOfDay(reminder.time)}:00', 'type': reminder.type})
         .toList();
     if (isSensitive && _dueTime != null) {
-      alerts.insert(0, {'time': _fmtTimeOnly(_dueTime!), 'type': _dueAlertType});
+      alerts.insert(0, {'time': '${formatTimeOfDay(_dueTime!)}:00', 'type': _dueAlertType});
     }
 
     final links = _links
@@ -192,7 +173,7 @@ class _AddTaskModalState extends State<AddTaskModal> {
       recurrenceType: recurrenceType,
       weekdays: weekdays,
       dayOfMonth: dayOfMonth,
-      startsOn: recurrenceType != null ? _fmtDateOnlyShort(d) : null,
+      startsOn: recurrenceType != null ? formatDate(selectedDay) : null,
       alerts: alerts,
       links: links,
       subtasks: _subtasks,
@@ -467,7 +448,7 @@ class _AddTaskModalState extends State<AddTaskModal> {
                 ),
                 if (_useCalendar && _dayOfMonth != null) ...[
                   const SizedBox(width: 12),
-                  Text('recurs every ${_ordinal(_dayOfMonth!)}',
+                  Text('recurs every ${ordinal(_dayOfMonth!)}',
                     style: TextStyle(fontFamily: 'Anonymous Pro', fontSize: 13, color: Colors.grey.shade500)),
                 ],
               ],
@@ -520,15 +501,6 @@ class _AddTaskModalState extends State<AddTaskModal> {
     }
   }
 
-  String _ordinal(int n) {
-    if (n >= 11 && n <= 13) return '${n}th';
-    switch (n % 10) {
-      case 1: return '${n}st';
-      case 2: return '${n}nd';
-      case 3: return '${n}rd';
-      default: return '${n}th';
-    }
-  }
 
   // ── Page 3a ─────────────────────────────────────────────────────────────────
 
@@ -844,9 +816,9 @@ class _AddTaskModalState extends State<AddTaskModal> {
   }
 
   void _addSubtask() {
-    final t = _subtaskController.text.trim();
-    if (t.isEmpty) return;
-    setState(() { _subtasks.add(t); _subtaskController.clear(); });
+    final title = _subtaskController.text.trim();
+    if (title.isEmpty) return;
+    setState(() { _subtasks.add(title); _subtaskController.clear(); });
   }
 
   // ── Page 5 ──────────────────────────────────────────────────────────────────

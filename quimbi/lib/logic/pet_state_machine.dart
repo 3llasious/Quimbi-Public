@@ -2,23 +2,25 @@ import 'dart:async';
 import 'dart:math';
 import 'package:flutter/foundation.dart';
 import '../models/task_model.dart';
+import '../utils/date_time_utils.dart';
+import '../utils/escalation_config.dart';
 
 enum PetDisplayState {
   idle,
   joy,
   attack,
-  escalating1, // +10min overdue — 3/4 health
-  escalating2, // +20min overdue — 1/2 health
-  escalating3, // +40min overdue — 1/4 health
-  critical, // +55min overdue — empty
-  dead, // +60min overdue → resurrection
+  escalating1, // +10 min overdue — 3/4 health
+  escalating2, // +20 min overdue — 1/2 health
+  escalating3, // +40 min overdue — 1/4 health
+  critical,    // +55 min overdue — empty
+  dead,        // +60 min overdue → resurrection
 }
 
 class PetStateMachine extends ChangeNotifier {
   double happiness = 50;
   double energy = 50;
 
-  // Hysteresis levels — only update when value is clearly past the boundary
+  // Hysteresis prevents rapid flickering between mood states at a boundary.
   int _happinessLevel = 2;
   int _energyLevel = 2;
   static const _hysteresis = 3.0;
@@ -26,21 +28,23 @@ class PetStateMachine extends ChangeNotifier {
   PetDisplayState _displayState = PetDisplayState.idle;
   PetDisplayState get displayState => _displayState;
 
-  String get mood => _getMood();
+  String get mood => _moodMatrix[_energyLevel][_happinessLevel];
 
   void Function(int taskId, String missedDate)? onTaskMissed;
   VoidCallback? onResurrection;
 
   bool _reminderActive = false;
   bool get reminderActive => _reminderActive;
-  Timer? _reminderTimer;
 
-  // Tasks that already triggered death this session — prevents repeat triggers
+  // Tasks that already triggered death this session — prevents repeat triggers.
   final Set<int> _missedTaskIds = {};
-  // Tasks seen actively escalating — stale tasks that skip straight to dead bypass this
-  final Set<int> _seenEscalatingIds = {};
-  // Tracks alerts already triggered this session to prevent repeat fires
+  // Tasks seen actively escalating — stale tasks that skip straight to dead bypass the animation.
+  final Set<int> _activelyEscalatingIds = {};
+  // Alert keys ('taskId_HH:MM') triggered this session — prevents re-firing.
   final Set<String> _triggeredAlerts = {};
+
+  // Used to detect midnight rollover and reset session state.
+  String _lastKnownDay = '';
 
   List<TaskModel> _tasks = [];
 
@@ -51,22 +55,26 @@ class PetStateMachine extends ChangeNotifier {
 
   final _rng = Random();
 
+  static const _moodMatrix = [
+    ['Empty', 'Bored', 'Sleepy', 'Dreamy'],
+    ['Sulky', 'Hangry', 'Fussy', 'Cozy'],
+    ['Grumpy', 'Pouty', 'Perky', 'Sunny'],
+    ['Devilish', 'Jittery', 'Bouncy', 'Dancy'],
+  ];
+
   void start() {
-    _idleTimer = Timer.periodic(
-      const Duration(seconds: 3),
-      (_) => _tickIdle(),
-    );
-    _escalationTimer = Timer.periodic(
-      const Duration(minutes: 1),
-      (_) {
-        _checkEscalation();
-        _checkReminders();
-      },
-    );
+    _lastKnownDay = todayDateString();
+    _idleTimer = Timer.periodic(EscalationConfig.idleTickInterval, (_) => _tickIdle());
+    _escalationTimer = Timer.periodic(EscalationConfig.escalationCheckInterval, (_) {
+      _checkAndResetForNewDay();
+      _checkEscalation();
+      _checkReminders();
+    });
   }
 
   void updateTasks(List<TaskModel> tasks) {
     _tasks = tasks;
+    _checkAndResetForNewDay();
     _checkEscalation();
     _checkReminders();
   }
@@ -75,8 +83,7 @@ class PetStateMachine extends ChangeNotifier {
     if (_displayState == PetDisplayState.dead) return;
     _attackTimer?.cancel();
     _setDisplayState(PetDisplayState.attack);
-    // Duration is a placeholder — adjust to match the gif length
-    _attackTimer = Timer(const Duration(milliseconds: 1500), () {
+    _attackTimer = Timer(EscalationConfig.attackAnimationDuration, () {
       _setDisplayState(PetDisplayState.idle);
       _checkEscalation();
     });
@@ -104,20 +111,33 @@ class PetStateMachine extends ChangeNotifier {
     energy = (energy - 10).clamp(0, 100);
     _setDisplayState(PetDisplayState.joy);
 
-    _joyTimer = Timer(const Duration(seconds: 5), () {
+    _joyTimer = Timer(EscalationConfig.joyStateDuration, () {
       _updateLevels();
       _setDisplayState(PetDisplayState.idle);
       _checkEscalation();
     });
   }
 
+  void _checkAndResetForNewDay() {
+    final today = todayDateString();
+    if (today == _lastKnownDay) return;
+    _lastKnownDay = today;
+    _missedTaskIds.clear();
+    _activelyEscalatingIds.clear();
+    _triggeredAlerts.clear();
+    if (_reminderActive) {
+      _reminderActive = false;
+      notifyListeners();
+    }
+  }
+
   void _tickIdle() {
     if (_displayState != PetDisplayState.idle) return;
-    final prevMood = _getMood();
-    happiness = (happiness + _fluctuation()).clamp(0, 100);
-    energy = (energy + _fluctuation()).clamp(0, 100);
+    final previousMood = mood;
+    happiness = (happiness + _nextMoodDelta()).clamp(0, 100);
+    energy = (energy + _nextMoodDelta()).clamp(0, 100);
     _updateLevels();
-    if (_getMood() != prevMood) notifyListeners();
+    if (mood != previousMood) notifyListeners();
   }
 
   void _updateLevels() {
@@ -136,21 +156,23 @@ class PetStateMachine extends ChangeNotifier {
     return currentLevel;
   }
 
-  double _fluctuation() {
-    final t = _rng.nextDouble();
-    final magnitude = 2 + (t * t) * 8; // squared biases towards 2, max 10
+  double _nextMoodDelta() {
+    final randomValue = _rng.nextDouble();
+    final magnitude = 2 + (randomValue * randomValue) * 8; // squared bias towards small changes
     return _rng.nextDouble() < 0.5 ? magnitude : -magnitude;
   }
 
-  // Returns true if any task OTHER than excludeTaskId has a triggered alert and is still active today
+  // Returns true if any task (other than excludeTaskId) has a triggered alert
+  // that is still pending today — i.e. the task occurs today and is not yet resolved.
   bool _hasActiveTriggeredAlerts({int? excludeTaskId}) {
-    final today = _todayDateString();
+    final today = todayDateString();
+    final now = DateTime.now();
     return _triggeredAlerts.any((key) {
-      final id = int.tryParse(key.split('_').first);
-      if (id == null || id == excludeTaskId) return false;
+      final taskId = int.tryParse(key.split('_').first);
+      if (taskId == null || taskId == excludeTaskId) return false;
       try {
-        final task = _tasks.firstWhere((t) => t.id == id);
-        return _occursToday(task) &&
+        final task = _tasks.firstWhere((t) => t.id == taskId);
+        return task.occursOn(now) &&
             !task.isCompletedOn(today) &&
             !task.isMissedOn(today);
       } catch (_) {
@@ -159,48 +181,13 @@ class PetStateMachine extends ChangeNotifier {
     });
   }
 
-  bool _occursToday(TaskModel task) {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final r = task.recurrence;
-
-    if (r == null) {
-      final anchor = task.dueTime ?? task.createdAt;
-      final due = DateTime.tryParse(anchor);
-      if (due == null) return false;
-      return due.year == now.year && due.month == now.month && due.day == now.day;
-    }
-
-    if (r.startsOn != null) {
-      final start = DateTime.parse(r.startsOn!);
-      if (today.isBefore(DateTime(start.year, start.month, start.day))) return false;
-    }
-    if (r.endsOn != null) {
-      final end = DateTime.parse(r.endsOn!);
-      if (today.isAfter(DateTime(end.year, end.month, end.day))) return false;
-    }
-
-    switch (r.recurrenceType) {
-      case 'daily':
-        return true;
-      case 'weekly':
-        if (r.weekdays == null) return false;
-        final days = r.weekdays!.split(',').map(int.parse).toList();
-        return days.contains(now.weekday);
-      case 'monthly':
-        return r.dayOfMonth != null && now.day == r.dayOfMonth;
-      default:
-        return false;
-    }
-  }
-
   void _checkReminders() {
     final now = DateTime.now();
-    final today = _todayDateString();
+    final today = todayDateString();
 
     for (final task in _tasks) {
       if (!task.isTimeSensitive) continue;
-      if (!_occursToday(task)) continue;
+      if (!task.occursOn(now)) continue;
       if (task.isCompletedOn(today) || task.isMissedOn(today)) continue;
 
       for (final alert in task.alerts) {
@@ -208,13 +195,10 @@ class PetStateMachine extends ChangeNotifier {
         final key = '${task.id}_${alert.alertTime}';
         if (_triggeredAlerts.contains(key)) continue;
 
-        final segments = alert.alertTime.split(':');
-        if (segments.length < 2) continue;
-        final hour = int.tryParse(segments[0]);
-        final minute = int.tryParse(segments[1]);
-        if (hour == null || minute == null) continue;
+        final parsed = parseTimeParts(alert.alertTime);
+        if (parsed == null) continue;
 
-        final alertTime = DateTime(now.year, now.month, now.day, hour, minute);
+        final alertTime = DateTime(now.year, now.month, now.day, parsed.hour, parsed.minute);
         if (now.isAfter(alertTime)) {
           _triggeredAlerts.add(key);
           triggerReminder();
@@ -222,7 +206,10 @@ class PetStateMachine extends ChangeNotifier {
       }
     }
 
-    // Sync: clear the reminder if no triggered alerts are still pending
+    _syncReminderState();
+  }
+
+  void _syncReminderState() {
     if (_reminderActive && !_hasActiveTriggeredAlerts()) {
       _reminderActive = false;
       notifyListeners();
@@ -231,7 +218,29 @@ class PetStateMachine extends ChangeNotifier {
 
   void _checkEscalation() {
     final now = DateTime.now();
-    final today = _todayDateString();
+    final today = todayDateString();
+    final worstTask = _findWorstOverdueTask(now, today);
+
+    final maxMinutes = worstTask?.$2 ?? 0;
+    final worstTaskId = worstTask?.$1;
+
+    final target = _escalationStateFor(maxMinutes);
+
+    if (target == PetDisplayState.dead && worstTaskId != null) {
+      _handleDeathTransition(worstTaskId);
+      return;
+    }
+
+    if (worstTaskId != null && target != PetDisplayState.idle) {
+      _activelyEscalatingIds.add(worstTaskId);
+    }
+
+    if (_displayState != PetDisplayState.joy && _displayState != PetDisplayState.attack) {
+      _setDisplayState(target);
+    }
+  }
+
+  (int taskId, int minutes)? _findWorstOverdueTask(DateTime now, String today) {
     int maxMinutes = 0;
     int? worstTaskId;
 
@@ -251,30 +260,19 @@ class PetStateMachine extends ChangeNotifier {
       }
     }
 
-    final target = _escalationStateFor(maxMinutes);
+    return worstTaskId != null ? (worstTaskId, maxMinutes) : null;
+  }
 
-    if (target == PetDisplayState.dead && worstTaskId != null) {
-      if (_displayState != PetDisplayState.dead) {
-        _missedTaskIds.add(worstTaskId);
-        if (!_seenEscalatingIds.contains(worstTaskId)) {
-          // Stale — task was already past death threshold when first seen, skip animation
-          onTaskMissed?.call(worstTaskId, _todayDateString());
-          _checkEscalation();
-        } else {
-          _triggerDeath(worstTaskId);
-        }
-      }
-      return;
-    }
+  void _handleDeathTransition(int taskId) {
+    if (_displayState == PetDisplayState.dead) return;
+    _missedTaskIds.add(taskId);
 
-    // Track tasks we've seen actively escalating (not stale)
-    if (worstTaskId != null && target != PetDisplayState.idle) {
-      _seenEscalatingIds.add(worstTaskId);
-    }
-
-    if (_displayState != PetDisplayState.joy &&
-        _displayState != PetDisplayState.attack) {
-      _setDisplayState(target);
+    if (!_activelyEscalatingIds.contains(taskId)) {
+      // Task was already past the death threshold when first seen — skip animation.
+      onTaskMissed?.call(taskId, todayDateString());
+      _checkEscalation();
+    } else {
+      _triggerDeath(taskId);
     }
   }
 
@@ -283,29 +281,22 @@ class PetStateMachine extends ChangeNotifier {
     final DateTime due;
 
     if (task.recurrence != null || !raw.contains(' ')) {
-      // Recurring task: ignore the stored date, apply the time to today
       final timePart = raw.contains(' ') ? raw.split(' ').last : raw;
-      final segments = timePart.split(':');
-      if (segments.length < 2) return null;
-      final hour = int.tryParse(segments[0]);
-      final minute = int.tryParse(segments[1]);
-      if (hour == null || minute == null) return null;
-      due = DateTime(now.year, now.month, now.day, hour, minute);
+      final parsed = parseTimeParts(timePart);
+      if (parsed == null) return null;
+      due = DateTime(now.year, now.month, now.day, parsed.hour, parsed.minute);
     } else {
-      // One-time task: only escalate on the specific due date
       final parsed = DateTime.tryParse(raw);
       if (parsed == null) return null;
-      final dueDate = DateTime(parsed.year, parsed.month, parsed.day);
-      final today = DateTime(now.year, now.month, now.day);
+      final dueDate = parsed.dateOnly;
+      final today = now.dateOnly;
       if (dueDate != today) return null;
       due = parsed;
     }
 
-    // Don't penalise tasks created today after their due time — user just added them
     final createdAt = DateTime.tryParse(task.createdAt);
     if (createdAt != null) {
-      final createdToday = DateTime(createdAt.year, createdAt.month, createdAt.day) ==
-          DateTime(now.year, now.month, now.day);
+      final createdToday = createdAt.dateOnly == now.dateOnly;
       if (createdToday && createdAt.isAfter(due)) return null;
     }
 
@@ -314,39 +305,24 @@ class PetStateMachine extends ChangeNotifier {
   }
 
   PetDisplayState _escalationStateFor(int minutes) {
-    if (minutes >= 60) return PetDisplayState.dead;
-    if (minutes >= 55) return PetDisplayState.critical;
-    if (minutes >= 40) return PetDisplayState.escalating3;
-    if (minutes >= 20) return PetDisplayState.escalating2;
-    if (minutes >= 10) return PetDisplayState.escalating1;
+    if (minutes >= EscalationConfig.deathMinutes) return PetDisplayState.dead;
+    if (minutes >= EscalationConfig.criticalMinutes) return PetDisplayState.critical;
+    if (minutes >= EscalationConfig.severeMinutes) return PetDisplayState.escalating3;
+    if (minutes >= EscalationConfig.moderateMinutes) return PetDisplayState.escalating2;
+    if (minutes >= EscalationConfig.mildMinutes) return PetDisplayState.escalating1;
     return PetDisplayState.idle;
   }
 
   void _triggerDeath(int taskId) {
     _setDisplayState(PetDisplayState.dead);
-    Future.delayed(const Duration(seconds: 8), () {
-      onTaskMissed?.call(taskId, _todayDateString());
+    Future.delayed(EscalationConfig.deathAnimationDuration, () {
+      onTaskMissed?.call(taskId, todayDateString());
       onResurrection?.call();
       happiness = 50;
       energy = 50;
       _updateLevels();
       _checkEscalation();
     });
-  }
-
-  String _todayDateString() {
-    final now = DateTime.now();
-    return '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
-  }
-
-  String _getMood() {
-    const matrix = [
-      ['Empty', 'Bored', 'Sleepy', 'Dreamy'],
-      ['Sulky', 'Hangry', 'Fussy', 'Cozy'],
-      ['Grumpy', 'Pouty', 'Perky', 'Sunny'],
-      ['Devilish', 'Jittery', 'Bouncy', 'Dancy'],
-    ];
-    return matrix[_energyLevel][_happinessLevel];
   }
 
   void _setDisplayState(PetDisplayState state) {
@@ -361,7 +337,6 @@ class PetStateMachine extends ChangeNotifier {
     _joyTimer?.cancel();
     _escalationTimer?.cancel();
     _attackTimer?.cancel();
-    _reminderTimer?.cancel();
     super.dispose();
   }
 }

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../models/task_model.dart';
+import '../models/modal_alert.dart';
 import '../repositories/task_repository.dart';
+import '../utils/date_time_utils.dart';
 import 'day_of_month_dialog.dart';
 import 'time_roller_sheet.dart';
 
@@ -19,12 +21,6 @@ class CopyTaskModal extends StatefulWidget {
   State<CopyTaskModal> createState() => _CopyTaskModalState();
 }
 
-class _Alert {
-  TimeOfDay time;
-  String type;
-  _Alert({required this.time, this.type = 'notification'});
-}
-
 class _CopyTaskModalState extends State<CopyTaskModal> {
   static const _orange = Color(0xFFFF4A00);
   static const _purple = Color(0xFF7B61FF);
@@ -39,7 +35,7 @@ class _CopyTaskModalState extends State<CopyTaskModal> {
   late DateTime _startDate;
 
   // alerts
-  final List<_Alert> _alerts = [];
+  final List<ModalAlert> _alerts = [];
 
   // due time
   TimeOfDay? _dueTime;
@@ -64,45 +60,39 @@ class _CopyTaskModalState extends State<CopyTaskModal> {
     _personController = TextEditingController(text: widget.task.people.map((p) => p.name).join(', '));
     _isTimeSensitive = widget.task.isTimeSensitive;
 
-    // pre-fill due time first so we can exclude it from reminders below
     if (widget.task.dueTime != null) {
-      final raw = widget.task.dueTime!;
-      final timePart = raw.contains(' ') ? raw.split(' ').last : raw;
-      final parts = timePart.split(':');
-      if (parts.length >= 2) {
-        final hour = int.tryParse(parts[0]);
-        final minute = int.tryParse(parts[1]);
-        if (hour != null && minute != null) {
-          _dueTime = TimeOfDay(hour: hour, minute: minute);
-        }
-      }
+      final parsed = parseTimeParts(widget.task.dueTime!);
+      if (parsed != null) _dueTime = TimeOfDay(hour: parsed.hour, minute: parsed.minute);
     }
 
-    // pre-fill alerts, skipping the due-time alert that _save() re-inserts at position 0
     bool dueAlertFound = false;
-    for (final a in widget.task.alerts) {
-      final parts = a.alertTime.split(':');
-      final hour = int.tryParse(parts[0]) ?? 0;
-      final minute = int.tryParse(parts.length > 1 ? parts[1] : '0') ?? 0;
-      final time = TimeOfDay(hour: hour, minute: minute);
+    for (final alert in widget.task.alerts) {
+      final parsed = parseTimeParts(alert.alertTime);
+      if (parsed == null) continue;
+      final time = TimeOfDay(hour: parsed.hour, minute: parsed.minute);
       if (_isTimeSensitive && _dueTime != null && !dueAlertFound &&
           time.hour == _dueTime!.hour && time.minute == _dueTime!.minute) {
-        _dueAlertType = a.alertType;
+        _dueAlertType = alert.alertType;
         dueAlertFound = true;
       } else {
-        _alerts.add(_Alert(time: time, type: a.alertType));
+        _alerts.add(ModalAlert(time: time, type: alert.alertType));
       }
     }
 
     if (widget.task.recurrence != null) {
-      final r = widget.task.recurrence!;
-      if (r.recurrenceType == 'daily') {
+      final recurrence = widget.task.recurrence!;
+      if (recurrence.recurrenceType == 'daily') {
         _isDaily = true;
-      } else if (r.recurrenceType == 'weekly' && r.weekdays != null) {
-        _weekdays.addAll(r.weekdays!.split(',').map((d) => int.parse(d.trim())));
-      } else if (r.recurrenceType == 'monthly' && r.dayOfMonth != null) {
+      } else if (recurrence.recurrenceType == 'weekly' && recurrence.weekdays != null) {
+        _weekdays.addAll(
+          recurrence.weekdays!
+              .split(',')
+              .map((entry) => int.tryParse(entry.trim()))
+              .whereType<int>(),
+        );
+      } else if (recurrence.recurrenceType == 'monthly' && recurrence.dayOfMonth != null) {
         _useCalendar = true;
-        _dayOfMonth = r.dayOfMonth;
+        _dayOfMonth = recurrence.dayOfMonth;
       }
     }
   }
@@ -115,11 +105,6 @@ class _CopyTaskModalState extends State<CopyTaskModal> {
     super.dispose();
   }
 
-  String _fmtTime(TimeOfDay t) =>
-      '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
-
-  String _fmtDate(DateTime d) =>
-      '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
   String _dateLabel(DateTime d) {
     final today = DateTime.now();
@@ -182,13 +167,13 @@ class _CopyTaskModalState extends State<CopyTaskModal> {
       weekdays = _weekdays.toList()..sort();
     }
 
-    final alerts = _alerts.map((a) => {'time': _fmtTime(a.time), 'type': a.type}).toList();
+    final alerts = _alerts.map((a) => {'time': formatTimeOfDay(a.time), 'type': a.type}).toList();
     if (_isTimeSensitive && _dueTime != null) {
-      alerts.insert(0, {'time': _fmtTime(_dueTime!), 'type': _dueAlertType});
+      alerts.insert(0, {'time': formatTimeOfDay(_dueTime!), 'type': _dueAlertType});
     }
 
     final dueTimeStr = _dueTime != null
-        ? '${_fmtDate(_startDate)} ${_fmtTime(_dueTime!)}:00'
+        ? '${formatDate(_startDate)} ${formatTimeOfDay(_dueTime!)}:00'
         : null;
 
     await TaskRepository().addFullTask(
@@ -198,7 +183,7 @@ class _CopyTaskModalState extends State<CopyTaskModal> {
       recurrenceType: recurrenceType,
       weekdays: weekdays,
       dayOfMonth: dayOfMonth,
-      startsOn: recurrenceType != null ? _fmtDate(_startDate) : null,
+      startsOn: recurrenceType != null ? formatDate(_startDate) : null,
       alerts: alerts,
       locationLabel: _locationController.text.trim().isEmpty ? null : _locationController.text.trim(),
       people: _personController.text.split(',').map((s) => s.trim()).where((s) => s.isNotEmpty).toList(),
@@ -294,8 +279,9 @@ class _CopyTaskModalState extends State<CopyTaskModal> {
         const SizedBox(width: 8),
         GestureDetector(
           onTap: () async {
+            final navigator = Navigator.of(context);
             await _save();
-            if (context.mounted) Navigator.of(context).pop();
+            navigator.pop();
             widget.onSaved();
           },
           child: Container(
@@ -390,7 +376,7 @@ class _CopyTaskModalState extends State<CopyTaskModal> {
             child: Row(children: [
               GestureDetector(
                 onTap: () => _pickTime(initial: a.time, onPicked: (t) => setState(() => a.time = t)),
-                child: Text(_fmtTime(a.time), style: const TextStyle(fontFamily: 'Anonymous Pro', fontSize: 15, color: _lightSlate)),
+                child: Text(formatTimeOfDay(a.time), style: const TextStyle(fontFamily: 'Anonymous Pro', fontSize: 15, color: _lightSlate)),
               ),
               const Spacer(),
               _buildAlertTypePicker(current: a.type, onCycle: (t) => a.type = t),
@@ -404,7 +390,7 @@ class _CopyTaskModalState extends State<CopyTaskModal> {
         }),
         if (_alerts.length < 3)
           GestureDetector(
-            onTap: () => setState(() => _alerts.add(_Alert(time: nextHour))),
+            onTap: () => setState(() => _alerts.add(ModalAlert(time: nextHour))),
             child: Container(
               width: 20, height: 20,
               decoration: const BoxDecoration(color: Color(0xFFB0B8C8), shape: BoxShape.circle),
@@ -426,7 +412,7 @@ class _CopyTaskModalState extends State<CopyTaskModal> {
             onPicked: (t) => setState(() => _dueTime = t),
           ),
           child: Text(
-            '${_isTimeSensitive ? 'due by time' : 'due time'} : ${_dueTime != null ? _fmtTime(_dueTime!) : 'n/a'}',
+            '${_isTimeSensitive ? 'due by time' : 'due time'} : ${_dueTime != null ? formatTimeOfDay(_dueTime!) : 'n/a'}',
             style: const TextStyle(fontFamily: 'Anonymous Pro', fontSize: 15, color: _lightSlate),
           ),
         ),
@@ -568,7 +554,7 @@ class _CopyTaskModalState extends State<CopyTaskModal> {
         if (_useCalendar && _dayOfMonth != null) ...[
           const SizedBox(width: 12),
           Text(
-            'recurs every ${_ordinal(_dayOfMonth!)}',
+            'recurs every ${ordinal(_dayOfMonth!)}',
             style: const TextStyle(fontFamily: 'Anonymous Pro', fontSize: 13, color: _lightSlate),
           ),
         ],
@@ -599,13 +585,4 @@ class _CopyTaskModalState extends State<CopyTaskModal> {
     );
   }
 
-  String _ordinal(int n) {
-    if (n >= 11 && n <= 13) return '${n}th';
-    switch (n % 10) {
-      case 1: return '${n}st';
-      case 2: return '${n}nd';
-      case 3: return '${n}rd';
-      default: return '${n}th';
-    }
-  }
 }

@@ -24,27 +24,27 @@ class TaskManager {
     return tasks;
   }
 
-  // Returns the time-of-day portion as "HH:MM:SS" for comparison, or null if absent/midnight.
-  String? _timeOf(TaskModel t) {
-    if (t.dueTime == null) return null;
-    final part = t.dueTime!.contains(' ') ? t.dueTime!.split(' ').last : t.dueTime!;
+  // Returns the time-of-day portion as "HH:MM:SS" for sort comparison, or null if absent/midnight.
+  String? _sortableTimePart(TaskModel task) {
+    if (task.dueTime == null) return null;
+    final part = task.dueTime!.contains(' ') ? task.dueTime!.split(' ').last : task.dueTime!;
     if (part.startsWith('00:00')) return null;
     return part;
   }
 
   int _compareTask(TaskModel a, TaskModel b) {
-    final ta = _timeOf(a);
-    final tb = _timeOf(b);
+    final timeA = _sortableTimePart(a);
+    final timeB = _sortableTimePart(b);
     // group: 0 = time-sensitive with time, 1 = non-sensitive with time, 2 = no time
-    int groupOf(TaskModel t, String? time) {
+    int groupOf(TaskModel task, String? time) {
       if (time == null) return 2;
-      return t.isTimeSensitive ? 0 : 1;
+      return task.isTimeSensitive ? 0 : 1;
     }
-    final ga = groupOf(a, ta);
-    final gb = groupOf(b, tb);
-    if (ga != gb) return ga.compareTo(gb);
-    if (ta == null || tb == null) return 0;
-    return ta.compareTo(tb);
+    final groupA = groupOf(a, timeA);
+    final groupB = groupOf(b, timeB);
+    if (groupA != groupB) return groupA.compareTo(groupB);
+    if (timeA == null || timeB == null) return 0;
+    return timeA.compareTo(timeB);
   }
 
   List<TaskModel> _assembleTaskModels(TaskRawData raw) {

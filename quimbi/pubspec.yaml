@@ -41,9 +41,9 @@ dependencies:
   sqflite_common_ffi_web: ^0.4.5+2
   path: ^1.9.0
   path_provider: ^2.1.0
-  glassmorphism: ^3.0.0
   gif: ^2.1.0
   confetti: ^0.7.0
+  liquid_glass_widgets: ^0.8.3
 
 dev_dependencies:
   flutter_test:

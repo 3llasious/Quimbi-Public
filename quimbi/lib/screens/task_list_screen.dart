@@ -220,7 +220,7 @@ class _TaskListScreenState extends State<TaskListScreen> {
                               padding: const EdgeInsets.only(bottom: 16),
                               child: ListenableBuilder(
                                 listenable: _potionManager,
-                                builder: (_, __) => PotionWidget(count: _potionManager.count),
+                                builder: (_, _) => PotionWidget(count: _potionManager.count),
                               ),
                             ),
                           ],

@@ -4,20 +4,10 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/task_model.dart';
 import '../models/subtask_model.dart';
+import '../utils/app_colours.dart';
+import '../utils/date_time_utils.dart';
 import 'edit_task_modal.dart';
 import 'copy_task_modal.dart';
-
-class AppColours {
-  static const orange = Color(0xFFF55420);
-  static const peach = Color(0xFFFFC4AC);
-  static const slate = Color(0xFF4D5B71);
-  static const lightSlate = Color(0xFF8D9EB7);
-  static const green = Color(0xFF5CC96E);
-  static const red = Color(0xFFFF6B5B);
-  static const overdueRed = Color(0xFFFF383C);
-  static const purple = Color(0xFF7B61FF);
-  static const purpleFaded = Color(0xFFD7CFFF);
-}
 
 class TaskCard extends StatefulWidget {
   final TaskModel task;
@@ -57,15 +47,14 @@ class _TaskCardState extends State<TaskCard>
 
   bool get _isToday {
     final now = DateTime.now();
-    final d = widget.selectedDate;
-    return d.year == now.year && d.month == now.month && d.day == now.day;
+    final selected = widget.selectedDate;
+    return selected.year == now.year && selected.month == now.month && selected.day == now.day;
   }
 
   bool get _isFuture {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final sel = DateTime(widget.selectedDate.year, widget.selectedDate.month, widget.selectedDate.day);
-    return sel.isAfter(today);
+    final today = DateTime.now().dateOnly;
+    final selected = widget.selectedDate.dateOnly;
+    return selected.isAfter(today);
   }
 
   @override
@@ -78,9 +67,11 @@ class _TaskCardState extends State<TaskCard>
   @override
   void didUpdateWidget(TaskCard oldWidget) {
     super.didUpdateWidget(oldWidget);
-    final o = oldWidget.selectedDate;
-    final n = widget.selectedDate;
-    final dateChanged = o.year != n.year || o.month != n.month || o.day != n.day;
+    final previousDate = oldWidget.selectedDate;
+    final newDate = widget.selectedDate;
+    final dateChanged = previousDate.year != newDate.year ||
+        previousDate.month != newDate.month ||
+        previousDate.day != newDate.day;
     final dueTimeChanged = oldWidget.task.dueTime != widget.task.dueTime;
 
     if (dateChanged || dueTimeChanged) {
@@ -88,7 +79,9 @@ class _TaskCardState extends State<TaskCard>
       _countdownTimer = null;
       _secondsLeft = 0;
       _isCountdownVisible = false;
-      if (widget.task.isTimeSensitive && _isToday && !widget.isCompleted && !widget.isMissed) _startCountdown();
+      if (widget.task.isTimeSensitive && _isToday && !widget.isCompleted && !widget.isMissed) {
+        _startCountdown();
+      }
     }
   }
 
@@ -99,8 +92,6 @@ class _TaskCardState extends State<TaskCard>
     super.dispose();
   }
 
-  String _dateStr(DateTime d) =>
-      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
   void _setupAnimation() {
     _expandController = AnimationController(
@@ -117,20 +108,22 @@ class _TaskCardState extends State<TaskCard>
     if (widget.task.alerts.isEmpty || widget.task.dueTime == null) return;
 
     final now = DateTime.now();
-    final d = widget.selectedDate;
+    final selectedDay = widget.selectedDate;
 
-    final alertTimes = widget.task.alerts.map((alert) {
-      final parts = _parseTimeParts(alert.alertTime);
-      return DateTime(d.year, d.month, d.day,
-          int.parse(parts[0]), int.parse(parts[1]));
-    }).toList();
+    final alertTimes = widget.task.alerts
+        .map((alert) => parseTimeParts(alert.alertTime))
+        .whereType<({int hour, int minute})>()
+        .map((parts) => DateTime(selectedDay.year, selectedDay.month, selectedDay.day, parts.hour, parts.minute))
+        .toList()
+      ..sort();
 
-    alertTimes.sort();
+    if (alertTimes.isEmpty) return;
     final earliestAlert = alertTimes.first;
 
-    final dueParts = _parseTimeParts(widget.task.dueTime!);
-    final dueDateTime = DateTime(d.year, d.month, d.day,
-        int.parse(dueParts[0]), int.parse(dueParts[1]));
+    final dueParts = parseTimeParts(widget.task.dueTime!);
+    if (dueParts == null) return;
+    final dueDateTime = DateTime(
+        selectedDay.year, selectedDay.month, selectedDay.day, dueParts.hour, dueParts.minute);
 
     if (now.isAfter(earliestAlert)) {
       _isCountdownVisible = true;
@@ -186,15 +179,6 @@ class _TaskCardState extends State<TaskCard>
     await launchUrl(uri);
   }
 
-  // Extracts HH:MM from either 'HH:MM', 'HH:MM:SS', or 'YYYY-MM-DD HH:MM:SS'
-  List<String> _parseTimeParts(String rawTime) {
-    if (rawTime.isEmpty) return ['00', '00'];
-    final timePart = rawTime.contains(' ') ? rawTime.split(' ').last : rawTime;
-    if (!timePart.contains(':')) return ['00', '00'];
-    final parts = timePart.split(':');
-    if (parts.isEmpty || parts[0].isEmpty) return ['00', '00'];
-    return [parts[0], parts.length > 1 ? parts[1] : '00'];
-  }
 
   String _formatCountdown() {
     final absoluteSeconds = _secondsLeft.abs();
@@ -304,9 +288,9 @@ class _TaskCardState extends State<TaskCard>
   }
 
   Widget _buildTimeColumn() {
-    final timeParts = _parseTimeParts(widget.task.dueTime ?? '00:00');
-    final hours = timeParts[0];
-    final minutes = timeParts[1];
+    final parsed = parseTimeParts(widget.task.dueTime ?? '00:00');
+    final hours = parsed?.hour.toString().padLeft(2, '0') ?? '00';
+    final minutes = parsed?.minute.toString().padLeft(2, '0') ?? '00';
 
     return SizedBox(
       width: 70,
@@ -445,12 +429,12 @@ class _TaskCardState extends State<TaskCard>
   List<Widget> _buildAlertButtons() {
     final alertButtons = <Widget>[];
 
-    final sortedAlerts = [...widget.task.alerts]..sort((a, b) {
-        final ap = _parseTimeParts(a.alertTime);
-        final bp = _parseTimeParts(b.alertTime);
-        final aMinutes = int.parse(ap[0]) * 60 + int.parse(ap[1]);
-        final bMinutes = int.parse(bp[0]) * 60 + int.parse(bp[1]);
-        return aMinutes.compareTo(bMinutes);
+    final sortedAlerts = [...widget.task.alerts]..sort((alertA, alertB) {
+        final alertATime = parseTimeParts(alertA.alertTime);
+        final alertBTime = parseTimeParts(alertB.alertTime);
+        final alertAMinutes = alertATime != null ? alertATime.hour * 60 + alertATime.minute : 0;
+        final alertBMinutes = alertBTime != null ? alertBTime.hour * 60 + alertBTime.minute : 0;
+        return alertAMinutes.compareTo(alertBMinutes);
       });
 
     for (final alert in sortedAlerts) {
@@ -495,19 +479,13 @@ class _TaskCardState extends State<TaskCard>
 
   bool _hasAlertTimePassed(String alertTime) {
     final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final sel = DateTime(
-        widget.selectedDate.year, widget.selectedDate.month, widget.selectedDate.day);
-    if (sel.isBefore(today)) return true;
+    final today = now.dateOnly;
+    final selected = widget.selectedDate.dateOnly;
+    if (selected.isBefore(today)) return true;
     if (!_isToday) return false;
-    final timeParts = _parseTimeParts(alertTime);
-    final alertDateTime = DateTime(
-      now.year,
-      now.month,
-      now.day,
-      int.parse(timeParts[0]),
-      int.parse(timeParts[1]),
-    );
+    final parsed = parseTimeParts(alertTime);
+    if (parsed == null) return false;
+    final alertDateTime = DateTime(now.year, now.month, now.day, parsed.hour, parsed.minute);
     return now.isAfter(alertDateTime);
   }
 

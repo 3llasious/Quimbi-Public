@@ -43,6 +43,44 @@ class TaskModel {
   bool isCompletedOn(String date) => completedDates.contains(date);
   bool isMissedOn(String date) => missedDates.contains(date);
 
+  bool occursOn(DateTime date) {
+    final day = DateTime(date.year, date.month, date.day);
+    final rec = recurrence;
+
+    if (rec == null) {
+      final anchor = dueTime ?? createdAt;
+      final due = DateTime.tryParse(anchor);
+      if (due == null) return false;
+      return due.year == date.year && due.month == date.month && due.day == date.day;
+    }
+
+    if (rec.startsOn != null) {
+      final start = DateTime.parse(rec.startsOn!);
+      if (day.isBefore(DateTime(start.year, start.month, start.day))) return false;
+    }
+    if (rec.endsOn != null) {
+      final end = DateTime.parse(rec.endsOn!);
+      if (day.isAfter(DateTime(end.year, end.month, end.day))) return false;
+    }
+
+    switch (rec.recurrenceType) {
+      case 'daily':
+        return true;
+      case 'weekly':
+        if (rec.weekdays == null) return false;
+        final days = rec.weekdays!
+            .split(',')
+            .map((entry) => int.tryParse(entry.trim()))
+            .whereType<int>()
+            .toList();
+        return days.contains(date.weekday);
+      case 'monthly':
+        return rec.dayOfMonth != null && date.day == rec.dayOfMonth;
+      default:
+        return false;
+    }
+  }
+
   factory TaskModel.fromMap(
     Map<String, dynamic> map, {
     List<SubtaskModel> subtasks = const [],

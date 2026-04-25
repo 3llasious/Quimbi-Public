@@ -1,6 +1,7 @@
+import 'dart:math' show pi;
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:glassmorphism/glassmorphism.dart';
+import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 
 class QuimbiNavBar extends StatefulWidget {
   final bool fabOpen;
@@ -24,6 +25,32 @@ class _QuimbiNavBarState extends State<QuimbiNavBar> {
   static const _orange = Color(0xFFF55420);
   static const _purple = Color(0xFF7B61FF);
 
+  static const _glassSettings = LiquidGlassSettings(
+    thickness: 24,
+    blur: 6,
+    refractiveIndex: 1.28,
+    lightAngle: -pi / 2, // light from directly above → top rim is white
+    lightIntensity: 1.0,
+    ambientStrength: 0.9,
+    saturation: 1.4,
+    glassColor: Color.fromARGB(20, 255, 255, 255),
+    specularSharpness: GlassSpecularSharpness.sharp,
+  );
+
+  static const _pillShadow = BoxDecoration(
+    borderRadius: BorderRadius.all(Radius.circular(36)),
+    boxShadow: [
+      BoxShadow(color: Color(0x26000000), blurRadius: 20, spreadRadius: 6, offset: Offset(0, 28)),
+    ],
+  );
+
+  static const _fabShadow = BoxDecoration(
+    shape: BoxShape.circle,
+    boxShadow: [
+      BoxShadow(color: Color(0x26000000), blurRadius: 20, spreadRadius: 6, offset: Offset(0, 28)),
+    ],
+  );
+
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -43,45 +70,18 @@ class _QuimbiNavBarState extends State<QuimbiNavBar> {
   }
 
   Widget _buildPill() {
-  return Container(
-    decoration: BoxDecoration(
-      borderRadius: BorderRadius.circular(999),
-      boxShadow: const [
-        BoxShadow(
-          color: Color(0x26000000),
-          blurRadius: 16,
-          spreadRadius: 4,
-          offset: Offset(0, 4),
-        ),
-      ],
-    ),
-    child: GlassmorphicContainer(
-      width: 260,
-      height: 72,
-      borderRadius: 999,
-      blur: 25,
-      alignment: Alignment.center,
-      border: 2,
-      linearGradient: LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [
-          Colors.white.withOpacity(0.35),
-          Colors.white.withOpacity(0.15),
-        ],
-      ),
-      borderGradient: LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [
-          Colors.white.withOpacity(0.8),
-          Colors.white.withOpacity(0.3),
-        ],
-      ),
-      child: Padding(
+    return Container(
+      decoration: _pillShadow,
+      child: GlassContainer(
+        useOwnLayer: true,
+        settings: _glassSettings,
+        width: 260,
+        height: 72,
+        shape: const LiquidRoundedSuperellipse(borderRadius: 36),
         padding: const EdgeInsets.all(6),
         child: Row(
-          mainAxisSize: MainAxisSize.min,
+          mainAxisSize: MainAxisSize.max,
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
             _buildNavItem('home', _homeIconSvg),
             _buildNavItem('todo', _todoIconSvg),
@@ -89,9 +89,8 @@ class _QuimbiNavBarState extends State<QuimbiNavBar> {
           ],
         ),
       ),
-    ),
-  );
-}
+    );
+  }
 
   Widget _buildNavItem(String key, String? svgString) {
     final isActive = _active == key;
@@ -110,7 +109,7 @@ class _QuimbiNavBarState extends State<QuimbiNavBar> {
                 borderRadius: BorderRadius.circular(999),
                 boxShadow: [
                   BoxShadow(
-                    color: _orange.withOpacity(0.35),
+                    color: _orange.withValues(alpha: 0.35),
                     blurRadius: 16,
                     offset: const Offset(0, 4),
                   ),
@@ -161,7 +160,7 @@ class _QuimbiNavBarState extends State<QuimbiNavBar> {
         color: isActive ? Colors.white : _purple,
         boxShadow: [
           BoxShadow(
-            color: (isActive ? Colors.white : _purple).withOpacity(0.6),
+            color: (isActive ? Colors.white : _purple).withValues(alpha: 0.6),
             blurRadius: 8,
             spreadRadius: 2,
           ),
@@ -177,44 +176,22 @@ class _QuimbiNavBarState extends State<QuimbiNavBar> {
             ? _orange
             : _purple;
 
+    final fabSettings = _glassSettings.copyWith(
+      visibility: widget.isPastDate ? 0.45 : 1.0,
+    );
+
     return GestureDetector(
       onTap: widget.isPastDate ? null : widget.onAddTap,
       child: Container(
-        decoration: const BoxDecoration(
-          shape: BoxShape.circle,
-          boxShadow: [
-            BoxShadow(
-              color: Color(0x26000000),
-              blurRadius: 16,
-              spreadRadius: 4,
-              offset: Offset(0, 4),
-            ),
-          ],
-        ),
-        child: GlassmorphicContainer(
-        width: 72,
-        height: 72,
-        borderRadius: 999,
-        blur: 15,
-        alignment: Alignment.center,
-        border: 1.5,
-        linearGradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Colors.white.withOpacity(widget.isPastDate ? 0.35 : 0.55),
-            Colors.white.withOpacity(widget.isPastDate ? 0.20 : 0.35),
-          ],
-        ),
-        borderGradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Colors.white.withOpacity(widget.isPastDate ? 0.4 : 0.8),
-            Colors.white.withOpacity(widget.isPastDate ? 0.1 : 0.3),
-          ],
-        ),
-        child: AnimatedRotation(
+        decoration: _fabShadow,
+        child: GlassContainer(
+          useOwnLayer: true,
+          settings: fabSettings,
+          width: 72,
+          height: 72,
+          shape: const LiquidOval(),
+          alignment: Alignment.center,
+          child: AnimatedRotation(
           turns: widget.fabOpen ? 0.125 : 0,
           duration: const Duration(milliseconds: 300),
           curve: Curves.elasticOut,

@@ -136,7 +136,7 @@ class _DateSelectorHeaderState extends State<DateSelectorHeader> {
                   physics: const ClampingScrollPhysics(),
                   padding: const EdgeInsets.symmetric(horizontal: _horizontalPadding),
                   itemCount: 36500,
-                  separatorBuilder: (_, __) => const SizedBox(width: _separatorWidth),
+                  separatorBuilder: (_, _) => const SizedBox(width: _separatorWidth),
                   itemBuilder: (context, index) => _DateItem(
                     date: _dateAt(index),
                     itemWidth: _itemWidth,
