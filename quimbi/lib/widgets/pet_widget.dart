@@ -83,7 +83,7 @@ class _PetWidgetState extends State<PetWidget> with SingleTickerProviderStateMix
       'perky':    'assets/gifs/hula-2.gif',
       'sunny':    'assets/gifs/side_to_side.gif',
       // High energy
-      'devilish': 'assets/gifs/hula-2.gif',
+      'devilish': 'assets/gifs/devilish-quimbi.gif',
       'jittery':  'assets/gifs/hula-2.gif',
       'bouncy':   'assets/gifs/side_to_side.gif',
       'dancy':    'assets/gifs/side_to_side.gif',
