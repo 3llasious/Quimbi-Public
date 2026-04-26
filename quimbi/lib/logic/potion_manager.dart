@@ -21,23 +21,23 @@ class PotionManager extends ChangeNotifier {
     final newIds = completedTaskIds.where((id) => !alreadyAwarded.contains(id)).toList();
     if (newIds.isEmpty) return 0;
     await _repo.adjustPotions(newIds.length, awardTaskIds: newIds, awardDate: date);
-    _count += newIds.length;
-    notifyListeners();
+    await _syncCount();
     return newIds.length;
   }
 
-  // -2 penalty for undoing a completion, clamped at 0 in the DB.
   Future<void> penaliseUndo() async {
     await _repo.adjustPotions(-2);
-    _count = (_count - 2).clamp(0, double.maxFinite).toInt();
-    notifyListeners();
+    await _syncCount();
   }
 
-  // Spends 1 potion on a resurrection.
   Future<void> spendPotion() async {
     if (_count <= 0) return;
     await _repo.adjustPotions(-1);
-    _count -= 1;
+    await _syncCount();
+  }
+
+  Future<void> _syncCount() async {
+    _count = await _repo.fetchPotionCount();
     notifyListeners();
   }
 }

@@ -37,19 +37,6 @@ class _QuimbiNavBarState extends State<QuimbiNavBar> {
     specularSharpness: GlassSpecularSharpness.sharp,
   );
 
-  static const _pillShadow = BoxDecoration(
-    borderRadius: BorderRadius.all(Radius.circular(36)),
-    boxShadow: [
-      BoxShadow(color: Color(0x26000000), blurRadius: 20, spreadRadius: 6, offset: Offset(0, 28)),
-    ],
-  );
-
-  static const _fabShadow = BoxDecoration(
-    shape: BoxShape.circle,
-    boxShadow: [
-      BoxShadow(color: Color(0x26000000), blurRadius: 20, spreadRadius: 6, offset: Offset(0, 28)),
-    ],
-  );
 
   @override
   Widget build(BuildContext context) {
@@ -70,9 +57,7 @@ class _QuimbiNavBarState extends State<QuimbiNavBar> {
   }
 
   Widget _buildPill() {
-    return Container(
-      decoration: _pillShadow,
-      child: GlassContainer(
+    return GlassContainer(
         useOwnLayer: true,
         settings: _glassSettings,
         width: 260,
@@ -88,7 +73,6 @@ class _QuimbiNavBarState extends State<QuimbiNavBar> {
             _buildNavItem('community', null),
           ],
         ),
-      ),
     );
   }
 
@@ -182,16 +166,14 @@ class _QuimbiNavBarState extends State<QuimbiNavBar> {
 
     return GestureDetector(
       onTap: widget.isPastDate ? null : widget.onAddTap,
-      child: Container(
-        decoration: _fabShadow,
-        child: GlassContainer(
-          useOwnLayer: true,
-          settings: fabSettings,
-          width: 72,
-          height: 72,
-          shape: const LiquidOval(),
-          alignment: Alignment.center,
-          child: AnimatedRotation(
+      child: GlassContainer(
+        useOwnLayer: true,
+        settings: fabSettings,
+        width: 72,
+        height: 72,
+        shape: const LiquidOval(),
+        alignment: Alignment.center,
+        child: AnimatedRotation(
           turns: widget.fabOpen ? 0.125 : 0,
           duration: const Duration(milliseconds: 300),
           curve: Curves.elasticOut,
@@ -200,7 +182,6 @@ class _QuimbiNavBarState extends State<QuimbiNavBar> {
             color: iconColor,
             size: 26,
           ),
-        ),
         ),
       ),
     );

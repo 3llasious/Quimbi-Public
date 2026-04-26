@@ -496,9 +496,16 @@ class _EditTaskModalState extends State<EditTaskModal> {
     String? dueTimeStr;
     if (_dueTime != null) {
       final existing = widget.task.dueTime;
-      final datePart = (existing != null && existing.contains(' '))
-          ? existing.split(' ').first
-          : formatDate(widget.selectedDate);
+      final wasRecurring = widget.task.recurrence != null;
+      // Recurring → once: anchor to selectedDate (the stored date is the creation
+      // date of the recurring task, which would put the task on the wrong day).
+      // All other cases: preserve the existing date so we don't silently move
+      // a non-recurring task just because the user is viewing a different date.
+      final datePart = (wasRecurring && recurrenceType == null)
+          ? formatDate(widget.selectedDate)
+          : (existing != null && existing.contains(' '))
+              ? existing.split(' ').first
+              : formatDate(widget.selectedDate);
       dueTimeStr = '$datePart ${formatTimeOfDay(_dueTime!)}:00';
     } else if (recurrenceType == null) {
       dueTimeStr = formatDate(widget.selectedDate);

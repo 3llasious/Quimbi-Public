@@ -246,6 +246,7 @@ class PetStateMachine extends ChangeNotifier {
 
     for (final task in _tasks) {
       if (!task.isTimeSensitive || task.dueTime == null) continue;
+      if (!task.occursOn(now)) continue;
       if (task.isCompletedOn(today)) continue;
       if (_missedTaskIds.contains(task.id)) continue;
       if (task.isMissedOn(today)) {

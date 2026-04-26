@@ -4,6 +4,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/task_model.dart';
 import '../models/subtask_model.dart';
+import '../repositories/task_repository.dart';
 import '../utils/app_colours.dart';
 import '../utils/date_time_utils.dart';
 import 'edit_task_modal.dart';
@@ -171,7 +172,9 @@ class _TaskCardState extends State<TaskCard>
   }
 
   void _toggleSubtask(SubtaskModel subtask) {
-    setState(() => subtask.isCompleted = !subtask.isCompleted);
+    final newValue = !subtask.isCompleted;
+    setState(() => subtask.isCompleted = newValue);
+    TaskRepository().toggleSubtask(subtask.id, newValue);
   }
 
   Future<void> _launchUrl(String url) async {

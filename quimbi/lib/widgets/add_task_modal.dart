@@ -41,7 +41,7 @@ class _AddTaskModalState extends State<AddTaskModal> {
   final _titleController = TextEditingController();
 
   // Page 2
-  final Set<int> _weekdays = {};
+  final Set<int> _weekdays = {DateTime.now().weekday};
   bool _useCalendar = false;
   int? _dayOfMonth;
   bool _isDaily = false;
@@ -468,7 +468,13 @@ class _AddTaskModalState extends State<AddTaskModal> {
         return Padding(
           padding: const EdgeInsets.only(right: 6),
           child: GestureDetector(
-            onTap: () => setState(() => sel ? _weekdays.remove(day) : _weekdays.add(day)),
+            onTap: () => setState(() {
+              sel ? _weekdays.remove(day) : _weekdays.add(day);
+              if (_weekdays.length == 7) {
+                _isDaily = true;
+                _weekdays.clear();
+              }
+            }),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 150),
               width: 36, height: 36,

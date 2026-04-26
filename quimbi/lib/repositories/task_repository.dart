@@ -248,6 +248,16 @@ class TaskRepository {
     }
   }
 
+  Future<void> toggleSubtask(int subtaskId, bool isCompleted) async {
+    final db = await DatabaseHelper.instance.database;
+    await db.update(
+      'subtasks',
+      {'completed': isCompleted ? 1 : 0},
+      where: 'id = ?',
+      whereArgs: [subtaskId],
+    );
+  }
+
   Future<void> deleteTask(int taskId) async {
     final db = await DatabaseHelper.instance.database;
     await db.delete('tasks', where: 'id = ?', whereArgs: [taskId]);

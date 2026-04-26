@@ -104,7 +104,7 @@ class _TaskListState extends State<TaskList> {
 
   Future<void> _deleteTask(int taskId) async {
     await _manager.deleteTask(taskId);
-    if (mounted) setState(() => _tasks!.removeWhere((task) => task.id == taskId));
+    if (mounted) _loadTasks();
   }
 
   @override
