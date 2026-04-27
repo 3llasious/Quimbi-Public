@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import '../models/task_model.dart';
 import '../utils/date_time_utils.dart';
 import '../utils/escalation_config.dart';
+import '../utils/escalation_settings.dart';
 
 enum PetDisplayState {
   idle,
@@ -17,6 +18,10 @@ enum PetDisplayState {
 }
 
 class PetStateMachine extends ChangeNotifier {
+  final EscalationSettings settings;
+
+  PetStateMachine(this.settings);
+
   double happiness = 50;
   double energy = 50;
 
@@ -134,10 +139,32 @@ class PetStateMachine extends ChangeNotifier {
   void _tickIdle() {
     if (_displayState != PetDisplayState.idle) return;
     final previousMood = mood;
-    happiness = (happiness + _nextMoodDelta()).clamp(0, 100);
-    energy = (energy + _nextMoodDelta()).clamp(0, 100);
+    happiness = (happiness + _happinessDelta()).clamp(0, 100);
+    energy = (energy + _energyDelta()).clamp(0, 100);
     _updateLevels();
     if (mood != previousMood) notifyListeners();
+  }
+
+  double _happinessDelta() {
+    switch (settings.personality) {
+      case QuimbiPersonality.grumpy:
+        return _rng.nextDouble() * 3 - 2.5; // -2.5 to +0.5
+      case QuimbiPersonality.sunny:
+        return _rng.nextDouble() * 5 - 1;   // -1 to +4
+      default:
+        return _nextMoodDelta();
+    }
+  }
+
+  double _energyDelta() {
+    switch (settings.personality) {
+      case QuimbiPersonality.anxious:
+        return _rng.nextDouble() * 5 - 1;   // -1 to +4 (high variance)
+      case QuimbiPersonality.sleepy:
+        return _rng.nextDouble() * 3 - 2.5; // -2.5 to +0.5
+      default:
+        return _nextMoodDelta();
+    }
   }
 
   void _updateLevels() {
@@ -306,11 +333,11 @@ class PetStateMachine extends ChangeNotifier {
   }
 
   PetDisplayState _escalationStateFor(int minutes) {
-    if (minutes >= EscalationConfig.deathMinutes) return PetDisplayState.dead;
-    if (minutes >= EscalationConfig.criticalMinutes) return PetDisplayState.critical;
-    if (minutes >= EscalationConfig.severeMinutes) return PetDisplayState.escalating3;
-    if (minutes >= EscalationConfig.moderateMinutes) return PetDisplayState.escalating2;
-    if (minutes >= EscalationConfig.mildMinutes) return PetDisplayState.escalating1;
+    if (minutes >= settings.deathMinutes) return PetDisplayState.dead;
+    if (minutes >= settings.criticalMinutes) return PetDisplayState.critical;
+    if (minutes >= settings.severeMinutes) return PetDisplayState.escalating3;
+    if (minutes >= settings.moderateMinutes) return PetDisplayState.escalating2;
+    if (minutes >= settings.mildMinutes) return PetDisplayState.escalating1;
     return PetDisplayState.idle;
   }
 

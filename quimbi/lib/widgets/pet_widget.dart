@@ -114,11 +114,24 @@ class _PetWidgetState extends State<PetWidget> with SingleTickerProviderStateMix
         gif,
         if (showReminder)
           Positioned(
-            right: 8,
-            top: 30,
-            child: SvgPicture.asset(
-              'assets/icons/reminder_triggered.svg',
-              height: 15,
+            left: 16,
+            top: 18,
+            child: Container(
+              width: 18,
+              height: 18,
+              decoration: const BoxDecoration(
+                color: Color(0xFFFF383C),
+                shape: BoxShape.circle,
+              ),
+              alignment: Alignment.center,
+              child: SvgPicture.asset(
+                'assets/icons/reminder_triggered.svg',
+                height: 8,
+                colorFilter: const ColorFilter.mode(
+                  Colors.white,
+                  BlendMode.srcIn,
+                ),
+              ),
             ),
           ),
       ],

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../logic/pet_state_machine.dart';
 import '../logic/potion_manager.dart';
 import '../repositories/task_repository.dart';
+import '../utils/escalation_settings.dart';
 import '../widgets/add_task_modal.dart';
 import '../widgets/date_selector_header.dart';
 import '../widgets/day_of_month_dialog.dart';
@@ -11,6 +12,7 @@ import '../widgets/nav_bar.dart';
 import '../widgets/pet_widget.dart';
 import '../widgets/potion_widget.dart';
 import '../widgets/task_list.dart';
+import 'settings_screen.dart';
 
 class TaskListScreen extends StatefulWidget {
   const TaskListScreen({super.key});
@@ -30,7 +32,8 @@ class _TaskListScreenState extends State<TaskListScreen> {
   String? _firstName;
   int _refreshKey = 0;
   bool _fabOpen = false;
-  final _petMachine = PetStateMachine();
+  final _escalationSettings = EscalationSettings();
+  late final PetStateMachine _petMachine;
   final _potionManager = PotionManager();
   late final ConfettiController _confettiLeft;
   late final ConfettiController _confettiRight;
@@ -54,6 +57,8 @@ class _TaskListScreenState extends State<TaskListScreen> {
   @override
   void initState() {
     super.initState();
+    _petMachine = PetStateMachine(_escalationSettings);
+    _escalationSettings.load();
     _confettiLeft = ConfettiController(duration: const Duration(seconds: 2));
     _confettiRight = ConfettiController(duration: const Duration(seconds: 2));
     _petMachine.onTaskMissed = (taskId, missedDate) async {
@@ -81,12 +86,22 @@ class _TaskListScreenState extends State<TaskListScreen> {
     });
   }
 
+  void _openSettings() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => SettingsScreen(settings: _escalationSettings),
+      ),
+    );
+  }
+
   @override
   void dispose() {
     _confettiLeft.dispose();
     _confettiRight.dispose();
     _petMachine.dispose();
     _potionManager.dispose();
+    _escalationSettings.dispose();
     super.dispose();
   }
 
@@ -147,12 +162,38 @@ class _TaskListScreenState extends State<TaskListScreen> {
                 children: [
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                    child: Text(
-                      _firstName != null ? '$_greeting $_firstName,' : _greeting,
-                      style: const TextStyle(
-                        fontFamily: 'CanelaTrialMedium',
-                        fontSize: 24,
-                      ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            _firstName != null ? '$_greeting $_firstName,' : _greeting,
+                            style: const TextStyle(
+                              fontFamily: 'CanelaTrialMedium',
+                              fontSize: 24,
+                            ),
+                          ),
+                        ),
+                        GestureDetector(
+                          onTap: _openSettings,
+                          child: Container(
+                            width: 30,
+                            height: 30,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF5EFE6),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: const Color(0xFFE0D6C8),
+                                width: 1.5,
+                              ),
+                            ),
+                            child: const Icon(
+                              Icons.tune,
+                              size: 20,
+                              color: Color(0xFF2D2D2D),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                   Padding(
